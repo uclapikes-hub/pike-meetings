@@ -1,5 +1,5 @@
 /* ===================================================================
-   PIKE Meeting Tracker — Stylesheet
+   PIKE Meeting Tracker â€” Stylesheet
    Per Pi Kappa Alpha Brand Standards Guide (Spring 2026)
    =================================================================== */
 
@@ -9,7 +9,7 @@
   /* Heritage colors */
   --garnet:     #79242F;
   --burgundy:   #572A31;
-  --crimson:    #894B52;     /* "Courageous Crimson" — for warnings */
+  --crimson:    #894B52;     /* "Courageous Crimson" â€” for warnings */
   --memphis-brick: #9C6167;  /* For fines / 2nd no-show */
 
   --true-gold:  #AA9767;
@@ -174,7 +174,7 @@ header {
 }
 .app-link-bar a:hover { color: var(--garnet); border-color: var(--garnet); }
 .app-link-bar a.current { color: var(--garnet); border-color: var(--garnet); }
-.app-link-bar a.current::before { content: "▸ "; }
+.app-link-bar a.current::before { content: "â–¸ "; }
 
 /* =================== QUARTER BAR =================== */
 .quarter-bar {
@@ -544,4 +544,124 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   .pike-logo { width: 180px; }
   .coa-watermark { width: 150px; }
   .settings-row { grid-template-columns: 1fr; }
+}
+
+/* =================== MODALS  (Stage 2) =================== */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(29, 37, 44, 0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+.modal.visible { display: flex; }
+
+.modal-card {
+  background: white;
+  width: 100%;
+  max-width: 440px;
+  padding: 40px 30px 30px;
+  text-align: center;
+  position: relative;
+  border-top: 4px solid var(--garnet);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-card-wide { max-width: 720px; text-align: left; }
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  color: var(--slate);
+  cursor: pointer;
+  padding: 4px 12px;
+  line-height: 1;
+}
+.modal-close:hover { color: var(--garnet); }
+
+.modal-title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--garnet);
+  margin-bottom: 4px;
+}
+.modal-meta {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  color: var(--true-gold);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: bold;
+  margin-bottom: 24px;
+}
+
+.qr-holder-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0 20px;
+  padding: 18px;
+  background: var(--light-gold);
+}
+#qr-holder canvas, #qr-holder img {
+  display: block;
+  margin: 0 auto;
+}
+
+.modal-help {
+  font-family: Georgia, serif;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--true-gold);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+.modal-actions .btn { margin-top: 0; }
+
+/* =================== ROLL SHEET =================== */
+.roll-sheet-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 18px;
+}
+.roll-sheet-header {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: bold;
+  padding: 10px 14px;
+  color: white;
+}
+.roll-sheet-header.roll-present { background: var(--garnet); }
+.roll-sheet-header.roll-absent  { background: var(--memphis-brick); }
+
+.roll-sheet-list {
+  background: white;
+  border: 1px solid rgba(170,151,103,0.3);
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+@media (max-width: 720px) {
+  .roll-sheet-grid { grid-template-columns: 1fr; }
+  .modal-card { padding: 30px 20px 20px; }
+  .modal-card-wide { max-width: 100%; }
 }
