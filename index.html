@@ -4,23 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PIKE Chapter Meetings — UCLA</title>
-
+ 
 <link rel="stylesheet" href="assets/styles.css">
-
+ 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
-
+ 
 <div class="wrap">
-
+ 
   <!-- ============== AUTH BAR ============== -->
   <div class="auth-bar">
     <span id="auth-status">Not signed in</span>
     <button id="auth-signin">Sign In with Google</button>
     <button id="auth-signout" style="display:none;">Sign Out</button>
   </div>
-
+ 
   <!-- ============== HEADER ============== -->
   <header>
     <img class="coa-watermark" src="assets/coat-of-arms.jpg" alt="">
@@ -28,23 +28,23 @@
       <img class="pike-logo" src="assets/pike-wordmark.png" alt="PIKE">
       <div class="tagline">Courage to be more</div>
       <div class="subtitle">Chapter Meetings</div>
-      <div class="chapter-tag">UCLA &middot; Beta Eta Chapter</div>
+      <div class="chapter-tag">UCLA &middot; Iota Pi Chapter</div>
     </div>
   </header>
-
+ 
   <!-- ============== APP-CROSS-LINK ============== -->
   <div class="app-link-bar">
-    <a href="https://uclapikes-hub.github.io/pike-attendance/">Event Tracker</a>
+    <a href="https://uclapikes-hub.github.io/pike-attendance/" target="_blank" rel="noopener">Event Tracker ↗</a>
     <a href="#" class="current">Meetings</a>
   </div>
-
+ 
   <!-- ============== QUARTER BAR ============== -->
   <div class="quarter-bar">
     <label for="quarter-top">Quarter</label>
     <select class="quarter-select" id="quarter-top"></select>
     <span class="quarter-hint">All meetings, attendance, and standing filter by quarter.</span>
   </div>
-
+ 
   <!-- ============== TABS ============== -->
   <div class="tabs">
     <button class="tab active" data-tab="rollcall">Roll Call</button>
@@ -53,20 +53,20 @@
     <button class="tab" data-tab="reports">Reports</button>
     <button class="tab" data-tab="settings">Settings</button>
   </div>
-
+ 
   <!-- ============== ROLL CALL PANEL ============== -->
   <div class="panel active" id="panel-rollcall">
-
+ 
     <!-- Brother dashboard (shown when signed in & in roster) -->
     <div class="card" id="standing-card" style="display:none;"></div>
-
+ 
     <!-- Guest / not-signed-in card -->
     <div class="card" id="standing-guest"></div>
-
+ 
     <!-- Roll call coming-soon (Stage 2) -->
     <div id="roll-call-placeholder"></div>
   </div>
-
+ 
   <!-- ============== MEETINGS PANEL ============== -->
   <div class="panel" id="panel-meetings">
     <div class="role-notice exec-notice">
@@ -74,7 +74,7 @@
     </div>
     <div id="meetings-content"></div>
   </div>
-
+ 
   <!-- ============== ABSENCE REQUESTS PANEL ============== -->
   <div class="panel" id="panel-absence">
     <div class="role-notice approver-notice">
@@ -82,7 +82,7 @@
     </div>
     <div id="absence-content"></div>
   </div>
-
+ 
   <!-- ============== REPORTS PANEL ============== -->
   <div class="panel" id="panel-reports">
     <div class="role-notice exec-notice">
@@ -90,17 +90,17 @@
     </div>
     <div id="reports-content"></div>
   </div>
-
+ 
   <!-- ============== SETTINGS PANEL ============== -->
   <div class="panel" id="panel-settings">
     <div class="role-notice exec-notice">
       <strong>Exec only.</strong> These settings are read by the system to send notifications. Changes save instantly to all users.
     </div>
-
+ 
     <div class="card exec-only">
       <div class="card-title">Notification Recipients</div>
       <div class="card-sub">Who gets emailed for what</div>
-
+ 
       <div class="settings-row">
         <label for="setting-sgt-email">Sergeant-at-Arms</label>
         <input type="email" id="setting-sgt-email" placeholder="nikkranjith21@gmail.com">
@@ -121,14 +121,14 @@
         <textarea id="setting-notes" rows="2" placeholder="Anything exec wants to remember about this term..."></textarea>
         <span></span>
       </div>
-
+ 
       <button class="btn" id="settings-save">Save Settings</button>
     </div>
-
+ 
     <div class="card">
       <div class="card-title">Build Status</div>
       <div class="card-sub">What's live right now</div>
-
+ 
       <div style="font-family: Georgia, serif; font-size: 14px; line-height: 1.8;">
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span><strong style="color: var(--garnet);">Stage 1: Foundations</strong> &mdash; sign-in, roles, quarter selector</span>
@@ -153,11 +153,11 @@
       </div>
     </div>
   </div>
-
+ 
 </div>
-
+ 
 <div class="toast" id="toast"></div>
-
+ 
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
