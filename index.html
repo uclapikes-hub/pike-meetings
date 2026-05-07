@@ -34,7 +34,7 @@
 
   <!-- ============== APP-CROSS-LINK ============== -->
   <div class="app-link-bar">
-    <a href="https://uclapikes-hub.github.io/pike-attendance/" target="_blank" rel="noopener">Event Tracker ↗&#xFE0E;</a>
+    <a href="https://uclapikes-hub.github.io/pike-attendance/" target="_blank" rel="noopener">Event Tracker ↗</a>
     <a href="#" class="current">Meetings</a>
   </div>
 
@@ -117,6 +117,11 @@
         <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--true-gold);">All fine notices</span>
       </div>
       <div class="settings-row">
+        <label for="setting-secretary-email">Secretary</label>
+        <input type="email" id="setting-secretary-email" placeholder="davidbnavarrojr@gmail.com">
+        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--true-gold);">Contact for under-48-hour absence requests</span>
+      </div>
+      <div class="settings-row">
         <label for="setting-notes">Internal Notes</label>
         <textarea id="setting-notes" rows="2" placeholder="Anything exec wants to remember about this term..."></textarea>
         <span></span>
@@ -139,8 +144,8 @@
           <span style="color: var(--true-gold); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
-          <span>Stage 3: Absence Requests</span>
-          <span style="color: var(--true-gold); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;">Pending</span>
+          <span><strong style="color: var(--garnet);">Stage 3: Absence Requests</strong> &mdash; submit, review, approve/deny</span>
+          <span style="color: var(--true-gold); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span>Stage 4: No-show enforcement &amp; fines</span>
