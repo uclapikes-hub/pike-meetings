@@ -14,7 +14,7 @@
 import {
   authApi, roster, meetings, attendance, absenceRequests,
   noShows, fines, settings,
-  EXEC_EMAILS, APPROVER_EMAILS, SGT_AT_ARMS_EMAIL, TREASURER_EMAIL,
+  EXEC_EMAILS, APPROVER_EMAILS, SGT_AT_ARMS_EMAIL, TREASURER_EMAIL, SECRETARY_EMAIL,
 } from "./data.js";
 import {
   currentQuarter, formatQuarter, quartersFromRecords,
@@ -884,19 +884,503 @@ window.addEventListener("hashchange", () => {
 // ===================================================================
 // ABSENCE / REPORTS placeholders (Stages 3-5)
 // ===================================================================
+// ===================================================================
+// ABSENCE REQUESTS  (Stage 3)
+// ===================================================================
+//
+// Same "stable form, dynamic list" pattern as the Meetings tab — the
+// brother's submit form is built once per role state and never wiped,
+// so typing isn't lost when other Firestore data updates.
+//
+// Approver queue (cards) and "my requests" list re-render freely.
+// ===================================================================
+
+let _absenceFormBuiltFor = null;
+
+const REASON_LABELS = {
+  academic: "Academic (midterm, exam, paper)",
+  family:   "Family (event, emergency)",
+  medical:  "Medical (appointment, illness)",
+  work:     "Work (shift conflict)",
+  other:    "Other",
+};
+
+// Returns hours between now and a meeting's start time (negative if past)
+function hoursUntilMeeting(meeting) {
+  const w = qrWindow(meeting);
+  if (!w.start) return -Infinity;
+  return (w.start.getTime() - Date.now()) / (60 * 60 * 1000);
+}
+
+// Meetings eligible for an absence request: in the future AND >48hr away
+function eligibleMeetings() {
+  return state.meetings
+    .filter(m => hoursUntilMeeting(m) > 48)
+    .sort((a, b) => qrWindow(a).start - qrWindow(b).start);
+}
+
+// Meetings within 48 hours (not eligible — too late to request)
+function tooSoonMeetings() {
+  return state.meetings
+    .filter(m => {
+      const h = hoursUntilMeeting(m);
+      return h > 0 && h <= 48;
+    })
+    .sort((a, b) => qrWindow(a).start - qrWindow(b).start);
+}
+
 function renderAbsenceTab() {
   const wrap = $("absence-content");
   if (!wrap) return;
-  wrap.innerHTML = `
+
+  const isApprover = !!(state.user && state.user.isApprover);
+  const isBrother = !!(state.user && state.user.rosterEntry);
+  const formKey = `${isApprover ? "approver" : "x"}|${isBrother ? "brother" : "x"}|${state.user?.email || "guest"}`;
+
+  if (_absenceFormBuiltFor !== formKey) {
+    wrap.innerHTML = `
+      ${isApprover ? `<div id="approver-queue-container"></div>` : ""}
+      ${isBrother ? renderAbsenceFormShell() : ""}
+      <div id="my-requests-container"></div>
+      ${!isBrother && !isApprover ? renderAbsenceGuestState() : ""}
+    `;
+
+    if (isBrother) {
+      $("abs-submit")?.addEventListener("click", handleSubmitAbsenceRequest);
+      $("abs-meeting")?.addEventListener("change", updateAbsenceFormGuards);
+    }
+
+    _absenceFormBuiltFor = formKey;
+  }
+
+  // ----- Update dynamic portions (these can re-render freely) -----
+  if (isBrother) {
+    updateAbsenceMeetingDropdown();
+    updateAbsenceFormGuards();
+    renderMyRequestsList();
+  }
+  if (isApprover) {
+    renderApproverQueue();
+  }
+}
+
+function renderAbsenceGuestState() {
+  return `
     <div class="card">
       <div class="empty-coming-soon">
-        <span class="stage-tag">Stage 3 — Coming Soon</span>
-        <h3>Absence Requests</h3>
-        <p style="margin-top: 12px; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.6;">
-          Submit absence requests at least 48 hours before a meeting. Reasons: academic, family, medical, work, or other. Proof required if you've already used your 3 free quarterly absences. Approvers (President, IVP, Secretary) review and decide.
+        <h3>Sign in to submit absence requests</h3>
+        <p style="margin-top: 12px;">
+          Use your Gmail address (must match what's on the chapter roster).
+          Approvers and exec officers will see the review queue here.
         </p>
       </div>
     </div>`;
+}
+
+// ----- Brother: submit form (built once, inputs preserved) -----
+function renderAbsenceFormShell() {
+  return `
+    <div class="card">
+      <div class="card-title">Request an Absence</div>
+      <div class="card-sub">Submit at least 48 hours before the meeting</div>
+
+      <label for="abs-meeting">Which Meeting</label>
+      <select id="abs-meeting"></select>
+      <div id="abs-too-soon-hint" style="display: none;"></div>
+
+      <div id="abs-form-body">
+        <label for="abs-reason">Reason</label>
+        <select id="abs-reason">
+          <option value="academic">${REASON_LABELS.academic}</option>
+          <option value="family">${REASON_LABELS.family}</option>
+          <option value="medical">${REASON_LABELS.medical}</option>
+          <option value="work">${REASON_LABELS.work}</option>
+          <option value="other">${REASON_LABELS.other}</option>
+        </select>
+
+        <label for="abs-description">
+          Details
+          <span style="font-weight: normal; text-transform: none; letter-spacing: 0; color: var(--true-gold); font-style: italic; margin-left: 6px;">
+            (be specific — at least one full sentence)
+          </span>
+        </label>
+        <textarea id="abs-description" rows="4" placeholder="Example: I have a CS35L midterm from 7-9pm Tuesday in Boelter Hall. The professor confirmed makeups aren't allowed." autocomplete="off"></textarea>
+        <div class="help" style="margin-top: 4px;">
+          Have written proof? Email it directly to the secretary.
+        </div>
+
+        <div id="abs-mandatory-warning" style="display: none;"></div>
+
+        <button class="btn" id="abs-submit">Submit Request</button>
+      </div>
+
+      <div id="abs-too-soon-message" style="display: none;"></div>
+    </div>
+  `;
+}
+
+function updateAbsenceMeetingDropdown() {
+  const sel = $("abs-meeting");
+  if (!sel) return;
+
+  const eligible = eligibleMeetings();
+  const previousValue = sel.value;
+
+  if (eligible.length === 0) {
+    sel.innerHTML = `<option value="">No upcoming meetings &gt;48 hours away</option>`;
+    sel.disabled = true;
+  } else {
+    sel.disabled = false;
+    sel.innerHTML = eligible.map(m => {
+      const hrs = Math.round(hoursUntilMeeting(m));
+      const days = Math.round(hrs / 24);
+      const when = hrs < 48 ? `${hrs}hr away`
+                  : days < 7 ? `${days} day${days === 1 ? "" : "s"} away`
+                  : `${fmtDate(m.date)}`;
+      const mand = m.mandatory ? " ⚑ MANDATORY" : "";
+      return `<option value="${m.id}">${escapeHtml(m.title)} — ${when}${mand}</option>`;
+    }).join("");
+
+    // Preserve user's selection across re-renders if still valid
+    if (previousValue && eligible.some(m => m.id === previousValue)) {
+      sel.value = previousValue;
+    }
+  }
+
+  // Show "too soon" hint if applicable
+  const tooSoon = tooSoonMeetings();
+  const hint = $("abs-too-soon-hint");
+  if (hint) {
+    if (tooSoon.length > 0) {
+      const secEmail = state.settings.secretaryEmail || SECRETARY_EMAIL;
+      hint.style.display = "block";
+      hint.style.cssText = "margin-top: 8px; padding: 10px 14px; background: var(--khaki); border-left: 3px solid var(--burgundy); font-family: Georgia, serif; font-size: 12px; font-style: italic;";
+      const list = tooSoon.map(m => `<strong>${escapeHtml(m.title)}</strong> (${fmtDate(m.date)} at ${fmtTime(m.startTime)})`).join(", ");
+      hint.innerHTML = `${tooSoon.length} meeting${tooSoon.length === 1 ? " is" : "s are"} less than 48 hours away (${list}). For those, contact the secretary directly: <a href="mailto:${secEmail}" style="color: var(--garnet); font-weight: bold;">${secEmail}</a>`;
+    } else {
+      hint.style.display = "none";
+    }
+  }
+}
+
+function updateAbsenceFormGuards() {
+  const sel = $("abs-meeting");
+  const formBody = $("abs-form-body");
+  const tooSoonMsg = $("abs-too-soon-message");
+  const mandWarn = $("abs-mandatory-warning");
+  if (!sel || !formBody || !tooSoonMsg || !mandWarn) return;
+
+  const meetingId = sel.value;
+  const meeting = state.meetings.find(m => m.id === meetingId);
+  const eligible = eligibleMeetings();
+
+  // Edge case: no eligible meetings at all
+  if (eligible.length === 0) {
+    formBody.style.display = "none";
+    const secEmail = state.settings.secretaryEmail || SECRETARY_EMAIL;
+    tooSoonMsg.style.display = "block";
+    tooSoonMsg.style.cssText = "display: block; margin-top: 18px; padding: 18px; background: var(--khaki); border-left: 3px solid var(--burgundy);";
+    tooSoonMsg.innerHTML = `
+      <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; color: var(--burgundy); font-weight: 600;">
+        No meetings eligible for absence requests
+      </div>
+      <div style="font-family: Georgia, serif; font-size: 14px; line-height: 1.6; margin-top: 8px;">
+        All upcoming meetings are within 48 hours, or none are scheduled. For urgent excused absences, contact the secretary directly:
+        <a href="mailto:${secEmail}" style="color: var(--garnet); font-weight: bold;">${secEmail}</a>
+      </div>`;
+    return;
+  }
+
+  formBody.style.display = "";
+  tooSoonMsg.style.display = "none";
+
+  // Mandatory warning
+  if (meeting && meeting.mandatory) {
+    mandWarn.style.display = "block";
+    mandWarn.style.cssText = "display: block; margin-top: 14px; padding: 12px 14px; background: var(--light-gold); border-left: 3px solid var(--burgundy); font-family: Georgia, serif; font-size: 13px; line-height: 1.5;";
+    mandWarn.innerHTML = `
+      <strong style="color: var(--burgundy);">⚑ This is a mandatory meeting.</strong>
+      Bylaws require attendance unless explicitly excused by exec. You can submit, but it'll likely be denied unless you've already gotten verbal approval from a President / IVP / Secretary.`;
+  } else {
+    mandWarn.style.display = "none";
+  }
+}
+
+async function handleSubmitAbsenceRequest() {
+  if (!state.user || !state.user.rosterEntry) {
+    return toast("You need to be in the chapter roster to submit", true);
+  }
+
+  const meetingId   = $("abs-meeting").value;
+  const reason      = $("abs-reason").value;
+  const description = $("abs-description").value.trim();
+
+  if (!meetingId)  return toast("Pick a meeting", true);
+  if (!reason)     return toast("Pick a reason", true);
+  if (description.length < 20) return toast("Be more specific in the description (20+ characters)", true);
+
+  const meeting = state.meetings.find(m => m.id === meetingId);
+  if (!meeting) return toast("Meeting not found — refresh", true);
+  if (hoursUntilMeeting(meeting) <= 48) {
+    const secEmail = state.settings.secretaryEmail || SECRETARY_EMAIL;
+    return toast(`Less than 48hr away — contact ${secEmail} directly`, true);
+  }
+
+  // Check for duplicate (same brother, same meeting, still pending or approved)
+  const target = state.user.rosterEntry;
+  const existing = state.absenceRequests.find(r =>
+    r.meetingId === meetingId &&
+    r.brotherKey === target.key &&
+    (r.status === "pending" || r.status === "approved")
+  );
+  if (existing) {
+    return toast("You already have a request for this meeting", true);
+  }
+
+  try {
+    await absenceRequests.submit({
+      meetingId,
+      brotherKey: target.key,
+      brotherName: `${target.firstName} ${target.lastName}`,
+      email: target.email,
+      reason,
+      description,
+      meetingTitle: meeting.title,
+      meetingDate: meeting.date,
+      meetingStartTime: meeting.startTime,
+      mandatory: !!meeting.mandatory,
+      quarter: meeting.quarter,
+    });
+    toast("Request submitted — approvers will review");
+    // Clear form (but only the parts we want to clear; keep the meeting selected for context)
+    $("abs-description").value = "";
+  } catch (e) {
+    console.error(e);
+    toast("Could not submit — check connection", true);
+  }
+}
+
+// ----- Brother: their own requests list (re-renders freely) -----
+function renderMyRequestsList() {
+  const wrap = $("my-requests-container");
+  if (!wrap) return;
+
+  const target = state.user?.rosterEntry;
+  if (!target) {
+    wrap.innerHTML = "";
+    return;
+  }
+
+  const myReqs = state.absenceRequests
+    .filter(r => r.brotherKey === target.key)
+    .filter(inQuarter)
+    .sort((a, b) => (b.submittedAt || 0) - (a.submittedAt || 0));
+
+  if (myReqs.length === 0) {
+    wrap.innerHTML = `
+      <div class="card">
+        <div class="card-title">My Requests</div>
+        <div class="card-sub">${formatQuarter(state.selectedQuarter)}</div>
+        <div class="empty">You haven't submitted any absence requests this quarter.</div>
+      </div>`;
+    return;
+  }
+
+  const pending  = myReqs.filter(r => r.status === "pending").length;
+  const approved = myReqs.filter(r => r.status === "approved").length;
+  const denied   = myReqs.filter(r => r.status === "denied").length;
+
+  wrap.innerHTML = `
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px;">
+        <div>
+          <div class="card-title">My Requests</div>
+          <div class="card-sub">${formatQuarter(state.selectedQuarter)} &middot; ${pending} pending, ${approved} approved, ${denied} denied</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px;">
+        ${myReqs.map(r => renderMyRequestRow(r)).join("")}
+      </div>
+    </div>`;
+
+  wrap.querySelectorAll("[data-cancel]").forEach(b => {
+    b.addEventListener("click", () => handleCancelRequest(b.dataset.cancel));
+  });
+}
+
+function renderMyRequestRow(r) {
+  const submittedAgo = r.submittedAt ? relativeTime(r.submittedAt) : "—";
+  const statusColor = r.status === "approved" ? "var(--garnet)"
+                     : r.status === "denied"   ? "var(--memphis-brick)"
+                     : "var(--true-gold)";
+  const statusLabel = r.status === "approved" ? "APPROVED"
+                     : r.status === "denied"   ? "DENIED"
+                     : "PENDING";
+
+  return `
+    <div style="padding: 14px 18px; background: white; border: 1px solid rgba(170,151,103,0.3); border-left: 3px solid ${statusColor};">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 220px;">
+          <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 17px; font-weight: 600; color: var(--garnet);">
+            ${escapeHtml(r.meetingTitle || "Meeting")}
+          </div>
+          <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); margin-top: 3px;">
+            ${escapeHtml(fmtDate(r.meetingDate))} &middot; ${fmtTime(r.meetingStartTime)} &middot; ${escapeHtml(REASON_LABELS[r.reason] || r.reason)}
+          </div>
+          <div style="font-family: Georgia, serif; font-size: 13px; color: var(--slate); margin-top: 8px; line-height: 1.5;">
+            ${escapeHtml(r.description)}
+          </div>
+          ${r.reviewerNote ? `
+            <div style="margin-top: 8px; padding: 8px 12px; background: var(--light-gold); font-family: Georgia, serif; font-size: 12px; font-style: italic;">
+              <strong style="font-style: normal; color: var(--garnet);">Approver note:</strong> ${escapeHtml(r.reviewerNote)}
+            </div>
+          ` : ""}
+          <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 8px; letter-spacing: 1px;">
+            Submitted ${submittedAgo}
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+          <span style="background: ${statusColor}; color: white; padding: 4px 10px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 1.5px;">
+            ${statusLabel}
+          </span>
+          ${r.status === "pending"
+            ? `<button class="btn btn-ghost btn-small" data-cancel="${r.id}">Cancel</button>`
+            : ""}
+        </div>
+      </div>
+    </div>`;
+}
+
+async function handleCancelRequest(id) {
+  if (!confirm("Cancel this absence request? You can re-submit before the 48-hour cutoff.")) return;
+  try {
+    await absenceRequests.cancel(id);
+    toast("Request cancelled");
+  } catch (e) {
+    console.error(e);
+    toast("Cancel failed — try again", true);
+  }
+}
+
+// ----- Approver queue -----
+function renderApproverQueue() {
+  const wrap = $("approver-queue-container");
+  if (!wrap) return;
+
+  const pending = state.absenceRequests
+    .filter(r => r.status === "pending")
+    .sort((a, b) => {
+      // Sort by meeting date (most urgent first)
+      const aTime = combineLocalDateTime(a.meetingDate, a.meetingStartTime)?.getTime() || Infinity;
+      const bTime = combineLocalDateTime(b.meetingDate, b.meetingStartTime)?.getTime() || Infinity;
+      return aTime - bTime;
+    });
+
+  const recentlyReviewed = state.absenceRequests
+    .filter(r => r.status !== "pending")
+    .filter(inQuarter)
+    .sort((a, b) => (b.reviewedAt || 0) - (a.reviewedAt || 0))
+    .slice(0, 10);
+
+  wrap.innerHTML = `
+    <div class="card">
+      <div class="card-title">Pending Review</div>
+      <div class="card-sub">${pending.length} request${pending.length === 1 ? "" : "s"} awaiting decision</div>
+
+      ${pending.length === 0
+        ? `<div class="empty">No pending requests right now.</div>`
+        : `<div style="display: flex; flex-direction: column; gap: 14px; margin-top: 14px;">
+            ${pending.map(r => renderApproverCard(r)).join("")}
+          </div>`}
+    </div>
+
+    ${recentlyReviewed.length > 0 ? `
+      <div class="card">
+        <div class="card-title" style="font-size: 18px;">Recently Reviewed</div>
+        <div class="card-sub">Last 10 decisions this quarter</div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px;">
+          ${recentlyReviewed.map(r => renderReviewedRow(r)).join("")}
+        </div>
+      </div>
+    ` : ""}
+  `;
+
+  wrap.querySelectorAll("[data-approve]").forEach(b =>
+    b.addEventListener("click", () => handleReviewDecision(b.dataset.approve, "approved")));
+  wrap.querySelectorAll("[data-deny]").forEach(b =>
+    b.addEventListener("click", () => handleReviewDecision(b.dataset.deny, "denied")));
+}
+
+function renderApproverCard(r) {
+  const submittedAgo = r.submittedAt ? relativeTime(r.submittedAt) : "—";
+  const meetingTime = combineLocalDateTime(r.meetingDate, r.meetingStartTime);
+  const meetingAway = meetingTime ? relativeTime(meetingTime) : "—";
+
+  return `
+    <div style="padding: 18px 20px; background: white; border: 1px solid rgba(170,151,103,0.3); ${r.mandatory ? "border-left: 3px solid var(--burgundy);" : "border-left: 3px solid var(--true-gold);"}">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+        <div style="flex: 1; min-width: 200px;">
+          <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--garnet);">
+            ${escapeHtml(r.brotherName)} ${r.mandatory ? `<span style="font-family: Arial; font-size: 10px; letter-spacing: 1.5px; color: var(--burgundy); margin-left: 6px;">⚑ MANDATORY MTG</span>` : ""}
+          </div>
+          <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.5px; margin-top: 3px;">
+            ${escapeHtml(r.meetingTitle || "Meeting")} &middot; ${escapeHtml(fmtDate(r.meetingDate))} ${fmtTime(r.meetingStartTime)} (${meetingAway})
+          </div>
+        </div>
+        <span style="background: var(--khaki); color: var(--burgundy); padding: 3px 9px; font-family: Arial; font-size: 9px; font-weight: bold; letter-spacing: 1.5px;">
+          ${escapeHtml((r.reason || "OTHER").toUpperCase())}
+        </span>
+      </div>
+
+      <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 12px; line-height: 1.55; padding: 12px 14px; background: var(--paper); border-left: 2px solid var(--key-gold);">
+        ${escapeHtml(r.description)}
+      </div>
+
+      <div style="margin-top: 14px;">
+        <label for="abs-note-${r.id}" style="margin: 0 0 4px;">Note <span style="font-weight: normal; text-transform: none; letter-spacing: 0; color: var(--true-gold); font-style: italic;">(optional, brother sees this)</span></label>
+        <input type="text" id="abs-note-${r.id}" placeholder="e.g. 'Approved — please email proof to secretary'" autocomplete="off">
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
+        <button class="btn" data-approve="${r.id}">Approve</button>
+        <button class="btn btn-danger" data-deny="${r.id}">Deny</button>
+        <span style="flex: 1; text-align: right; font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
+          Submitted ${submittedAgo} by ${escapeHtml(r.email || "")}
+        </span>
+      </div>
+    </div>`;
+}
+
+function renderReviewedRow(r) {
+  const color = r.status === "approved" ? "var(--garnet)" : "var(--memphis-brick)";
+  const reviewerShort = (r.reviewedBy || "").split("@")[0];
+  return `
+    <div style="padding: 10px 14px; background: white; border-left: 3px solid ${color}; font-family: Georgia, serif; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap;">
+      <div>
+        <strong style="color: ${color};">${(r.status || "").toUpperCase()}</strong>
+        &middot; ${escapeHtml(r.brotherName)}
+        &middot; ${escapeHtml(r.meetingTitle || "Meeting")}
+        &middot; <span style="color: var(--knight-steel); font-size: 12px;">${escapeHtml(REASON_LABELS[r.reason] || r.reason)}</span>
+      </div>
+      <span style="font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
+        by ${escapeHtml(reviewerShort)} ${r.reviewedAt ? relativeTime(r.reviewedAt) : ""}
+      </span>
+    </div>`;
+}
+
+async function handleReviewDecision(id, decision) {
+  if (!state.user || !state.user.isApprover) {
+    return toast("Only approvers can decide", true);
+  }
+  const noteInput = $(`abs-note-${id}`);
+  const note = noteInput ? noteInput.value.trim() : "";
+  try {
+    await absenceRequests.review(id, decision, note);
+    toast(`Request ${decision}`);
+  } catch (e) {
+    console.error(e);
+    toast("Review failed — try again", true);
+  }
 }
 
 function renderReportsTab() {
@@ -921,6 +1405,7 @@ function renderSettings() {
   $("setting-vc-email").value = state.settings.judicialViceChair || "";
   $("setting-sgt-email").value = state.settings.sgtAtArmsEmail || SGT_AT_ARMS_EMAIL;
   $("setting-treasurer-email").value = state.settings.treasurerEmail || TREASURER_EMAIL;
+  $("setting-secretary-email").value = state.settings.secretaryEmail || SECRETARY_EMAIL;
   $("setting-notes").value = state.settings.notes || "";
 }
 
@@ -933,6 +1418,7 @@ $("settings-save").addEventListener("click", async () => {
       judicialViceChair: $("setting-vc-email").value.trim().toLowerCase(),
       sgtAtArmsEmail:    $("setting-sgt-email").value.trim().toLowerCase(),
       treasurerEmail:    $("setting-treasurer-email").value.trim().toLowerCase(),
+      secretaryEmail:    $("setting-secretary-email").value.trim().toLowerCase(),
       notes:             $("setting-notes").value.trim(),
     });
     toast("Settings saved");
