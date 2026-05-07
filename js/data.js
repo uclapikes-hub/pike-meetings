@@ -198,12 +198,16 @@ export const meetings = {
   },
 
   async remove(id) {
-    // Cascade: delete attendance, absence requests for this meeting
+    // Cascade: delete all data tied to this meeting
     const tasks = [];
     const att = await getDocs(query(collection(fs, "meeting_attendance"), where("meetingId", "==", id)));
     att.forEach(d => tasks.push({ ref: d.ref }));
     const reqs = await getDocs(query(collection(fs, "absence_requests"), where("meetingId", "==", id)));
     reqs.forEach(d => tasks.push({ ref: d.ref }));
+    const ns = await getDocs(query(collection(fs, "no_shows"), where("meetingId", "==", id)));
+    ns.forEach(d => tasks.push({ ref: d.ref }));
+    const fn = await getDocs(query(collection(fs, "fines"), where("meetingId", "==", id)));
+    fn.forEach(d => tasks.push({ ref: d.ref }));
 
     for (let i = 0; i < tasks.length; i += 400) {
       const batch = writeBatch(fs);
@@ -237,6 +241,10 @@ export const attendance = {
       timestamp:  Date.now(),
       quarter:    payload.quarter || currentQuarter(),
     });
+  },
+
+  async remove(id) {
+    await deleteDoc(doc(fs, "meeting_attendance", id));
   },
 };
 
