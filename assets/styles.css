@@ -1,5 +1,6 @@
+@charset "UTF-8";
 /* ===================================================================
-   PIKE Meeting Tracker â€” Stylesheet
+   PIKE Meeting Tracker — Stylesheet
    Per Pi Kappa Alpha Brand Standards Guide (Spring 2026)
    =================================================================== */
 
@@ -9,7 +10,7 @@
   /* Heritage colors */
   --garnet:     #79242F;
   --burgundy:   #572A31;
-  --crimson:    #894B52;     /* "Courageous Crimson" â€” for warnings */
+  --crimson:    #894B52;     /* "Courageous Crimson" — for warnings */
   --memphis-brick: #9C6167;  /* For fines / 2nd no-show */
 
   --true-gold:  #AA9767;
@@ -174,7 +175,7 @@ header {
 }
 .app-link-bar a:hover { color: var(--garnet); border-color: var(--garnet); }
 .app-link-bar a.current { color: var(--garnet); border-color: var(--garnet); }
-.app-link-bar a.current::before { content: "â–¸ "; }
+.app-link-bar a.current::before { content: "\25B8\00A0"; }
 
 /* =================== QUARTER BAR =================== */
 .quarter-bar {
@@ -217,12 +218,15 @@ header {
   display: flex;
   margin-bottom: 24px;
   border-bottom: 2px solid var(--true-gold);
-  flex-wrap: wrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.tabs::-webkit-scrollbar { display: none; }
 .tab {
-  flex: 1;
-  min-width: 0;
-  padding: 14px 10px;
+  flex: 1 0 auto;
+  min-width: max-content;
+  padding: 14px 18px;
   background: transparent;
   border: none;
   font-family: Arial, Helvetica, sans-serif;
@@ -540,7 +544,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   .stats { grid-template-columns: repeat(2, 1fr); }
   .standing-grid { grid-template-columns: repeat(2, 1fr); }
   .card { padding: 20px; }
-  .tab { font-size: 10px; padding: 12px 6px; letter-spacing: 1px; }
+  .tab { font-size: 11px; padding: 14px 16px; }
   .pike-logo { width: 180px; }
   .coa-watermark { width: 150px; }
   .settings-row { grid-template-columns: 1fr; }
