@@ -1031,17 +1031,28 @@ function renderMeetingRow(m, isExec) {
 async function deleteMeeting(id) {
   const m = state.meetings.find(x => x.id === id);
   if (!m) return;
-  const cnt = state.attendance.filter(a => a.meetingId === id).length;
-  const msg = cnt > 0
-    ? `Delete "${m.title}" and its ${cnt} attendance record${cnt === 1 ? "" : "s"}? This cannot be undone.`
-    : `Delete "${m.title}"?`;
+  const attCount = state.attendance.filter(a => a.meetingId === id).length;
+  const reqCount = state.absenceRequests.filter(r => r.meetingId === id).length;
+  const nsCount  = state.noShows.filter(n => n.meetingId === id).length;
+  const fnCount  = state.fines.filter(f => f.meetingId === id).length;
+
+  const parts = [];
+  if (attCount) parts.push(`${attCount} attendance record${attCount === 1 ? "" : "s"}`);
+  if (reqCount) parts.push(`${reqCount} absence request${reqCount === 1 ? "" : "s"}`);
+  if (nsCount)  parts.push(`${nsCount} no-show record${nsCount === 1 ? "" : "s"}`);
+  if (fnCount)  parts.push(`${fnCount} fine record${fnCount === 1 ? "" : "s"}`);
+
+  const msg = parts.length === 0
+    ? `Delete "${m.title}"?`
+    : `Delete "${m.title}" and ALL associated data?\n\nThis will also remove:\n• ${parts.join("\n• ")}\n\nThis cannot be undone.`;
+
   if (!confirm(msg)) return;
   try {
     await meetings.remove(id);
-    toast("Meeting deleted");
+    toast("Meeting and associated data deleted");
   } catch (e) {
     console.error(e);
-    toast("Permission denied", true);
+    toast("Delete failed — check console", true);
   }
 }
 
@@ -1983,6 +1994,73 @@ $("settings-save").addEventListener("click", async () => {
     console.error(e);
     toast("Save failed — exec sign-in required", true);
   }
+});
+
+// ===================================================================
+// MAINTENANCE — Orphan cleanup
+// ===================================================================
+// Finds any no_show / fine / meeting_attendance / absence_request whose
+// meetingId doesn't match an existing meeting, and deletes them.
+// Idempotent. Safe to run anytime.
+// ===================================================================
+$("settings-cleanup-orphans").addEventListener("click", async () => {
+  if (!state.user || !state.user.isExec) {
+    return toast("Only exec can run cleanup", true);
+  }
+
+  const liveMeetingIds = new Set(state.meetings.map(m => m.id));
+
+  // Find orphans across all four collections
+  const orphanNoShows = state.noShows.filter(n => !liveMeetingIds.has(n.meetingId));
+  const orphanFines   = state.fines.filter(f => !liveMeetingIds.has(f.meetingId));
+  const orphanAtt     = state.attendance.filter(a => !liveMeetingIds.has(a.meetingId));
+  const orphanReqs    = state.absenceRequests.filter(r => !liveMeetingIds.has(r.meetingId));
+
+  const total = orphanNoShows.length + orphanFines.length + orphanAtt.length + orphanReqs.length;
+
+  if (total === 0) {
+    $("settings-cleanup-status").textContent = "No orphans found ✓";
+    toast("No orphan records to clean up");
+    return;
+  }
+
+  const summary = [];
+  if (orphanNoShows.length) summary.push(`${orphanNoShows.length} no-show${orphanNoShows.length === 1 ? "" : "s"}`);
+  if (orphanFines.length)   summary.push(`${orphanFines.length} fine${orphanFines.length === 1 ? "" : "s"}`);
+  if (orphanAtt.length)     summary.push(`${orphanAtt.length} attendance record${orphanAtt.length === 1 ? "" : "s"}`);
+  if (orphanReqs.length)    summary.push(`${orphanReqs.length} absence request${orphanReqs.length === 1 ? "" : "s"}`);
+
+  const ok = confirm(
+    `Found ${total} orphaned record${total === 1 ? "" : "s"}:\n\n• ${summary.join("\n• ")}\n\n` +
+    `Delete them all? This cannot be undone.`
+  );
+  if (!ok) return;
+
+  $("settings-cleanup-status").textContent = "Cleaning...";
+
+  let deleted = 0;
+  let failed = 0;
+
+  // Use the same per-collection remove() methods we already have
+  for (const r of orphanNoShows) {
+    try { await noShows.remove(r.id); deleted++; }
+    catch (e) { console.warn("noShow", r.id, e); failed++; }
+  }
+  for (const r of orphanFines) {
+    try { await fines.remove(r.id); deleted++; }
+    catch (e) { console.warn("fine", r.id, e); failed++; }
+  }
+  for (const r of orphanAtt) {
+    try { await attendance.remove(r.id); deleted++; }
+    catch (e) { console.warn("attendance", r.id, e); failed++; }
+  }
+  for (const r of orphanReqs) {
+    try { await absenceRequests.cancel(r.id); deleted++; }
+    catch (e) { console.warn("request", r.id, e); failed++; }
+  }
+
+  $("settings-cleanup-status").textContent = `Cleaned ${deleted}${failed ? " (" + failed + " failed)" : ""} ✓`;
+  toast(`Cleaned up ${deleted} orphan record${deleted === 1 ? "" : "s"}${failed ? ` — ${failed} failed (see console)` : ""}`);
 });
 
 // ===================================================================
