@@ -64,6 +64,8 @@ export const APPROVER_EMAILS = new Set([
 export const SGT_AT_ARMS_EMAIL = "nikkranjith21@gmail.com";
 export const TREASURER_EMAIL   = "david.mescobedo20@gmail.com";
 export const SECRETARY_EMAIL   = "davidbnavarrojr@gmail.com";
+export const PRESIDENT_EMAIL   = "pthomsak@gmail.com";
+export const IVP_EMAIL         = "ryansalridge@gmail.com";
 
 // ===================================================================
 // AUTH
