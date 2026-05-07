@@ -289,6 +289,39 @@ export const noShows = {
       callback(list);
     });
   },
+
+  async create(record) {
+    return await addDoc(collection(fs, "no_shows"), {
+      ...record,
+      timestamp: Date.now(),
+      appealed: false,
+      appealStatus: null,
+      appealReason: null,
+    });
+  },
+
+  async appeal(id, reason) {
+    await updateDoc(doc(fs, "no_shows", id), {
+      appealed: true,
+      appealStatus: "pending",
+      appealReason: reason,
+      appealedAt: Date.now(),
+      appealedBy: currentUser?.email || null,
+    });
+  },
+
+  async resolveAppeal(id, decision /* "overturned" | "upheld" */, note) {
+    await updateDoc(doc(fs, "no_shows", id), {
+      appealStatus: decision,
+      appealResolvedAt: Date.now(),
+      appealResolvedBy: currentUser?.email || null,
+      appealResolverNote: note || "",
+    });
+  },
+
+  async remove(id) {
+    await deleteDoc(doc(fs, "no_shows", id));
+  },
 };
 
 // ===================================================================
@@ -302,6 +335,35 @@ export const fines = {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       callback(list);
     });
+  },
+
+  async create(fine) {
+    return await addDoc(collection(fs, "fines"), {
+      ...fine,
+      status: "pending",
+      createdAt: Date.now(),
+    });
+  },
+
+  async markPaid(id) {
+    await updateDoc(doc(fs, "fines", id), {
+      status: "paid",
+      paidAt: Date.now(),
+      paidMarkedBy: currentUser?.email || null,
+    });
+  },
+
+  async waive(id, reason) {
+    await updateDoc(doc(fs, "fines", id), {
+      status: "waived",
+      waivedAt: Date.now(),
+      waivedBy: currentUser?.email || null,
+      waiveReason: reason || "",
+    });
+  },
+
+  async remove(id) {
+    await deleteDoc(doc(fs, "fines", id));
   },
 };
 
