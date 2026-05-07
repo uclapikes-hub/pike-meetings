@@ -669,3 +669,228 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   .modal-card { padding: 30px 20px 20px; }
   .modal-card-wide { max-width: 100%; }
 }
+
+/* ===================================================================
+   MOTION + POLISH PASS  (Stage 2.5)
+   -------------------------------------------------------------------
+   Vanilla CSS premium feel: glassmorphism, spring easing, sine-pulse,
+   refined hover/press states. No JS framework required.
+   =================================================================== */
+
+/* ----- Easing curves ----- */
+/* Spring-like "snap" curve — closest CSS approximation to Framer's
+   spring(stiffness:300, damping:30). Slight overshoot, settles fast. */
+:root {
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-glide:  cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ----- Refined card transitions ----- */
+.card {
+  transition: transform 0.4s var(--ease-spring),
+              box-shadow 0.3s var(--ease-out),
+              border-color 0.2s ease;
+  will-change: transform;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(50, 62, 72, 0.10),
+              0 1px 3px rgba(50, 62, 72, 0.04);
+}
+/* Don't lift cards inside modals or the standing dashboard (less playful, more serious) */
+.modal-card:hover, #standing-card:hover, .empty-coming-soon:hover {
+  transform: none;
+  box-shadow: 0 1px 4px rgba(50, 62, 72, 0.05);
+}
+
+/* ----- Spring tab transitions ----- */
+.tab {
+  position: relative;
+  transition: color 0.2s var(--ease-out),
+              background 0.25s var(--ease-out);
+}
+.tab.active {
+  /* The garnet underline grows in with a spring */
+  border-bottom-color: var(--garnet);
+}
+.tab::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 0;
+  height: 3px;
+  background: var(--garnet);
+  transition: all 0.35s var(--ease-spring);
+  transform: translateX(-50%);
+}
+.tab.active::after {
+  width: 100%;
+}
+.tab.active { border-bottom-color: transparent; } /* Let ::after take over */
+
+/* ----- Refined button feedback ----- */
+.btn {
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s var(--ease-out),
+              transform 0.15s var(--ease-spring),
+              box-shadow 0.2s var(--ease-out);
+}
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(121, 36, 47, 0.25);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 0.08s;
+}
+.btn-ghost:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(121, 36, 47, 0.15);
+}
+.btn-danger:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(156, 97, 103, 0.25);
+}
+
+/* ----- Premium input focus state ----- */
+input:focus, select:focus, textarea:focus {
+  box-shadow: 0 0 0 3px rgba(121, 36, 47, 0.12);
+  transition: border-color 0.2s var(--ease-out),
+              box-shadow 0.2s var(--ease-out);
+}
+
+/* ----- Glassmorphism on modals ----- */
+.modal {
+  /* Backdrop now has a soft blur — frosted glass over the page */
+  background: rgba(29, 37, 44, 0.45);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+          backdrop-filter: blur(12px) saturate(140%);
+  animation: fadeInBackdrop 0.25s var(--ease-out);
+}
+@keyframes fadeInBackdrop {
+  from { opacity: 0; -webkit-backdrop-filter: blur(0px); backdrop-filter: blur(0px); }
+  to   { opacity: 1; }
+}
+
+.modal-card {
+  /* Subtle frosted-glass hint on the card itself + spring entrance */
+  background: rgba(255, 255, 255, 0.97);
+  -webkit-backdrop-filter: blur(20px);
+          backdrop-filter: blur(20px);
+  box-shadow: 0 20px 60px rgba(29, 37, 44, 0.25),
+              0 1px 3px rgba(29, 37, 44, 0.10);
+  animation: modalCardIn 0.4s var(--ease-spring);
+  border-radius: 2px;
+}
+@keyframes modalCardIn {
+  from { opacity: 0; transform: scale(0.94) translateY(12px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+/* ----- QR ACTIVE STATE — sine-wave side pulse -----
+   When the roll-call card is in QR-open mode (uses .card.warn),
+   the left and right edges of the card breathe with garnet light.
+   Subtle, "scanner is listening." */
+.panel.active #roll-call-placeholder .card.warn {
+  position: relative;
+}
+.panel.active #roll-call-placeholder .card.warn::before,
+.panel.active #roll-call-placeholder .card.warn::after {
+  content: "";
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  width: 3px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--garnet) 20%,
+    var(--crimson) 50%,
+    var(--garnet) 80%,
+    transparent 100%
+  );
+  border-radius: 999px;
+  opacity: 0.5;
+  animation: qrPulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+  filter: blur(2px);
+}
+.panel.active #roll-call-placeholder .card.warn::before { left: -1px; }
+.panel.active #roll-call-placeholder .card.warn::after  {
+  right: -1px;
+  animation-delay: 1.2s;  /* offset right side so they alternate gently */
+}
+@keyframes qrPulse {
+  0%, 100% { opacity: 0.3; transform: scaleY(0.9); }
+  50%      { opacity: 0.7; transform: scaleY(1.05); }
+}
+
+/* The Mark-Me-Present button gets a gentle breathing glow when the QR is open */
+#rc-mark-present {
+  animation: presentGlow 2.4s ease-in-out infinite;
+  position: relative;
+}
+@keyframes presentGlow {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(121, 36, 47, 0.30),
+                0 0 0 0 rgba(170, 151, 103, 0.4);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(121, 36, 47, 0.45),
+                0 0 0 8px rgba(170, 151, 103, 0);
+  }
+}
+
+/* ----- Refined toast entrance ----- */
+.toast {
+  -webkit-backdrop-filter: blur(8px);
+          backdrop-filter: blur(8px);
+  background: rgba(50, 62, 72, 0.92);
+  border-radius: 4px;
+  transition: opacity 0.3s var(--ease-out),
+              transform 0.4s var(--ease-spring);
+}
+
+/* ----- Smooth panel transitions ----- */
+.panel {
+  transition: opacity 0.25s var(--ease-out);
+}
+.panel.active {
+  animation: panelIn 0.4s var(--ease-spring);
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ----- Stat / standing tile entry animations ----- */
+.standing-tile, .stat {
+  transition: transform 0.4s var(--ease-spring),
+              box-shadow 0.3s var(--ease-out);
+}
+.standing-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(50, 62, 72, 0.08);
+}
+
+/* ----- Auth bar buttons feel snappier ----- */
+.auth-bar button {
+  transition: background 0.2s var(--ease-out),
+              transform 0.15s var(--ease-spring);
+}
+.auth-bar button:hover {
+  transform: translateY(-1px);
+}
+.auth-bar button:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* ----- Reduce motion for users who prefer it ----- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
