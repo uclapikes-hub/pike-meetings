@@ -496,28 +496,49 @@ function countMandatoryThisQuarter(quarter) {
   return state.meetings.filter(m => m.mandatory && m.quarter === quarter).length;
 }
 
+// Tracks whether the form has been built for the current user role.
+// Only re-builds when the role changes (exec vs not-exec), NOT on Firestore updates.
+let _meetingsFormBuiltFor = null; // "exec" | "non-exec" | null
+
 function renderMeetingsTab() {
   const wrap = $("meetings-content");
   if (!wrap) return;
 
   const isExec = !!(state.user && state.user.isExec);
+  const formKey = isExec ? "exec" : "non-exec";
 
-  // Split into upcoming vs past (relative to now)
+  // ----- Build form ONCE per role state (preserves user input across re-renders) -----
+  if (_meetingsFormBuiltFor !== formKey) {
+    wrap.innerHTML = `
+      <div id="meetings-form-container"></div>
+      <div id="meetings-list-container"></div>
+    `;
+    const formContainer = $("meetings-form-container");
+    if (isExec) {
+      formContainer.innerHTML = renderCreateMeetingFormShell();
+      $("mtg-create")?.addEventListener("click", handleCreateMeeting);
+      defaultMeetingDate();
+    } else {
+      formContainer.innerHTML = "";
+    }
+    _meetingsFormBuiltFor = formKey;
+  }
+
+  // ----- Update mandatory-cap warning WITHOUT wiping the form -----
+  if (isExec) updateMandatoryCapHint();
+
+  // ----- Re-render the meeting list freely (this is the safe-to-rebuild part) -----
   const upcoming = state.meetings.filter(m => !qrWindow(m).isPast).filter(inQuarter);
   const past     = state.meetings.filter(m => qrWindow(m).isPast).filter(inQuarter);
-
   const sortAsc  = (a, b) => qrWindow(a).start - qrWindow(b).start;
   const sortDesc = (a, b) => qrWindow(b).start - qrWindow(a).start;
-
   upcoming.sort(sortAsc);
   past.sort(sortDesc);
 
   const showPast = state.showPastMeetings;
   const visible = showPast ? past : upcoming;
 
-  wrap.innerHTML = `
-    ${isExec ? renderCreateMeetingForm() : ""}
-
+  $("meetings-list-container").innerHTML = `
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px;">
         <div>
@@ -532,36 +553,31 @@ function renderMeetingsTab() {
       </div>
 
       ${visible.length === 0
-        ? `<div class="empty">${showPast ? "No past meetings in this quarter." : "No upcoming meetings — secretary creates them above."}</div>`
+        ? `<div class="empty">${showPast ? "No past meetings in this quarter." : (isExec ? "No upcoming meetings — create one above." : "No upcoming meetings.")}</div>`
         : `<div class="event-list" style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px;">
             ${visible.map(m => renderMeetingRow(m, isExec)).join("")}
           </div>`}
     </div>
   `;
 
-  // Wire buttons
+  // Wire list buttons (these are inside the dynamic container so safe to re-bind)
   $("meetings-toggle")?.addEventListener("click", () => {
     state.showPastMeetings = !state.showPastMeetings;
     renderMeetingsTab();
   });
 
-  if (isExec) {
-    $("mtg-create")?.addEventListener("click", handleCreateMeeting);
-  }
-
-  wrap.querySelectorAll("[data-qr]").forEach(b =>
+  const listWrap = $("meetings-list-container");
+  listWrap.querySelectorAll("[data-qr]").forEach(b =>
     b.addEventListener("click", () => openQrModal(b.dataset.qr)));
-  wrap.querySelectorAll("[data-del]").forEach(b =>
+  listWrap.querySelectorAll("[data-del]").forEach(b =>
     b.addEventListener("click", () => deleteMeeting(b.dataset.del)));
-  wrap.querySelectorAll("[data-roll]").forEach(b =>
+  listWrap.querySelectorAll("[data-roll]").forEach(b =>
     b.addEventListener("click", () => openRollSheet(b.dataset.roll)));
 }
 
-function renderCreateMeetingForm() {
-  const todayQ = currentQuarter();
-  const mandCount = countMandatoryThisQuarter(todayQ);
-  const mandFull = mandCount >= 4;
-
+// Form shell — built once. The mandatory-cap text is in a child element we
+// update separately so the inputs are never destroyed mid-typing.
+function renderCreateMeetingFormShell() {
   return `
     <div class="card exec-only">
       <div class="card-title">Create Meeting</div>
@@ -570,7 +586,7 @@ function renderCreateMeetingForm() {
       <div class="row-2">
         <div>
           <label for="mtg-title">Meeting Title</label>
-          <input type="text" id="mtg-title" placeholder="Weekly Chapter Meeting">
+          <input type="text" id="mtg-title" placeholder="Weekly Chapter Meeting" autocomplete="off">
         </div>
         <div>
           <label for="mtg-date">Date</label>
@@ -594,23 +610,48 @@ function renderCreateMeetingForm() {
       </div>
 
       <label for="mtg-location">Location</label>
-      <input type="text" id="mtg-location" placeholder="Chapter house living room">
+      <input type="text" id="mtg-location" placeholder="Chapter house living room" autocomplete="off">
 
-      <div style="display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 12px 14px; background: var(--light-gold); border-left: 3px solid ${mandFull ? "var(--knight-steel)" : "var(--burgundy)"};">
-        <input type="checkbox" id="mtg-mandatory" style="width: auto; margin: 0;" ${mandFull ? "disabled" : ""}>
-        <label for="mtg-mandatory" style="margin: 0; cursor: ${mandFull ? "not-allowed" : "pointer"}; ${mandFull ? "color: var(--knight-steel);" : ""}">
+      <div id="mtg-mandatory-row" style="display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 12px 14px; background: var(--light-gold); border-left: 3px solid var(--burgundy);">
+        <input type="checkbox" id="mtg-mandatory" style="width: auto; margin: 0;">
+        <label for="mtg-mandatory" id="mtg-mandatory-label" style="margin: 0; cursor: pointer;">
           Mandatory Meeting
         </label>
-        <span style="font-family: Georgia, serif; font-size: 12px; font-style: italic; color: var(--true-gold);">
-          ${mandFull
-            ? `Bylaws limit mandatory meetings to 4 per quarter. ${formatQuarter(todayQ)} already has 4.`
-            : `${4 - mandCount} mandatory slot${4 - mandCount === 1 ? "" : "s"} remaining this quarter (Article VI §12)`}
-        </span>
+        <span id="mtg-mandatory-hint" style="font-family: Georgia, serif; font-size: 12px; font-style: italic; color: var(--true-gold);"></span>
       </div>
 
       <button class="btn" id="mtg-create">Create Meeting</button>
     </div>
   `;
+}
+
+// Updates the mandatory-cap row in place (does NOT touch the inputs).
+function updateMandatoryCapHint() {
+  const todayQ = currentQuarter();
+  const mandCount = countMandatoryThisQuarter(todayQ);
+  const mandFull = mandCount >= 4;
+
+  const row = $("mtg-mandatory-row");
+  const cb = $("mtg-mandatory");
+  const lbl = $("mtg-mandatory-label");
+  const hint = $("mtg-mandatory-hint");
+  if (!row || !cb || !lbl || !hint) return;
+
+  if (mandFull) {
+    cb.disabled = true;
+    cb.checked = false;
+    row.style.borderLeft = "3px solid var(--knight-steel)";
+    lbl.style.cursor = "not-allowed";
+    lbl.style.color = "var(--knight-steel)";
+    hint.textContent = `Bylaws limit mandatory meetings to 4 per quarter. ${formatQuarter(todayQ)} already has 4.`;
+  } else {
+    cb.disabled = false;
+    row.style.borderLeft = "3px solid var(--burgundy)";
+    lbl.style.cursor = "pointer";
+    lbl.style.color = "";
+    const remaining = 4 - mandCount;
+    hint.textContent = `${remaining} mandatory slot${remaining === 1 ? "" : "s"} remaining this quarter (Article VI §12)`;
+  }
 }
 
 async function handleCreateMeeting() {
@@ -911,10 +952,8 @@ renderQuarterSelectors();
 renderAll();
 startRollCallTimer();
 
-// Default the date input on the create form to today (when user signs in as exec)
+// Default the date input on the create form to today (called when the form is built).
 function defaultMeetingDate() {
   const dateInput = $("mtg-date");
   if (dateInput && !dateInput.value) dateInput.valueAsDate = new Date();
 }
-const observer = new MutationObserver(() => defaultMeetingDate());
-observer.observe($("meetings-content"), { childList: true, subtree: true });
