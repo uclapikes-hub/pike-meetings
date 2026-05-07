@@ -347,7 +347,75 @@ function renderMyStanding() {
         <strong>${pending} absence request${pending === 1 ? "" : "s"} pending review.</strong>
         Approvers (President / IVP / Secretary) will review before each meeting.
       </div>` : ""}
+
+    ${myNoShows.length > 0 ? renderMyNoShowsList(myNoShows, myFines) : ""}
   `;
+
+  // Wire up Appeal buttons
+  card.querySelectorAll("[data-appeal]").forEach(b =>
+    b.addEventListener("click", () => openAppealModal(b.dataset.appeal)));
+}
+
+function renderMyNoShowsList(myNoShows, myFines) {
+  const sorted = [...myNoShows].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const fineByMeeting = new Map(myFines.map(f => [f.meetingId, f]));
+  return `
+    <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--light-gold);">
+      <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--garnet); margin-bottom: 10px;">
+        Your No-Shows This Quarter
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        ${sorted.map((n, idx) => {
+          const fine = fineByMeeting.get(n.meetingId);
+          const sequence = ["1st", "2nd", "3rd", "4th+"][Math.min(n.count - 1, 3)] || "";
+          const consequenceLabel =
+            n.count === 1 ? "Warning" :
+            n.count === 2 ? `$${fine?.amount || 25} Fine + Sgt notice` :
+            n.count >= 3  ? "Sgt-at-Arms / Judicial Board" : "";
+
+          let appealStatus = "";
+          if (n.appealed) {
+            appealStatus = n.appealStatus === "pending" ? "Appeal pending" :
+                          n.appealStatus === "overturned" ? "✓ Overturned" :
+                          n.appealStatus === "upheld" ? "Appeal denied" : "";
+          }
+
+          return `
+            <div style="padding: 12px 14px; background: white; border: 1px solid rgba(170,151,103,0.3); border-left: 3px solid var(--crimson); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start;">
+              <div style="flex: 1; min-width: 200px;">
+                <div style="font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 1px; color: var(--crimson); text-transform: uppercase;">
+                  ${sequence} No-Show &middot; ${escapeHtml(consequenceLabel)}
+                </div>
+                <div style="font-family: Georgia, serif; font-size: 13px; color: var(--slate); margin-top: 4px;">
+                  ${escapeHtml(n.meetingTitle || "Meeting")} &middot; ${escapeHtml(fmtDate(n.meetingDate || ""))}
+                </div>
+                ${n.reason ? `<div style="font-family: Georgia, serif; font-size: 11px; color: var(--knight-steel); margin-top: 3px; font-style: italic;">${escapeHtml(noShowReasonLabel(n.reason))}</div>` : ""}
+                ${n.appealed && n.appealStatus !== "pending" && n.appealResolverNote ? `
+                  <div style="margin-top: 6px; padding: 6px 10px; background: var(--light-gold); font-family: Georgia, serif; font-size: 11px; font-style: italic;">
+                    <strong style="font-style: normal; color: var(--garnet);">Sgt note:</strong> ${escapeHtml(n.appealResolverNote)}
+                  </div>` : ""}
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+                ${appealStatus ? `
+                  <span style="background: ${n.appealStatus === "overturned" ? "var(--garnet)" : "var(--knight-steel)"}; color: white; padding: 3px 8px; font-family: Arial; font-size: 9px; font-weight: bold; letter-spacing: 1.5px;">
+                    ${escapeHtml(appealStatus)}
+                  </span>
+                ` : ""}
+                ${!n.appealed ? `<button class="btn btn-ghost btn-small" data-appeal="${n.id}">Appeal</button>` : ""}
+              </div>
+            </div>`;
+        }).join("")}
+      </div>
+    </div>`;
+}
+
+function noShowReasonLabel(reason) {
+  const labels = {
+    no_qr_scan:        "Did not scan QR",
+    denied_request:    "Absence request denied",
+    pending_at_start:  "Absence request not decided in time",
+  };
+  return labels[reason] || reason;
 }
 
 // ===================================================================
@@ -487,7 +555,201 @@ function startRollCallTimer() {
     renderRollCallTab();
     renderMyStanding();
     renderMeetingsTab();
+    // Stage 4: also run the no-show processor (only fires for exec/sgt)
+    processClosedMeetings().catch(e => console.warn("No-show processor:", e));
+    autoDenyPendingPastStart().catch(e => console.warn("Auto-deny:", e));
   }, 30000);
+}
+
+// ===================================================================
+// STAGE 4 — NO-SHOW PROCESSING
+// ===================================================================
+//
+// IDEMPOTENT: re-running these functions doesn't create duplicates.
+// Only fires for exec or Sgt-at-Arms (via Firestore rules + UI guard).
+//
+// Two phases run on the 30-second timer:
+//   1. autoDenyPendingPastStart — flips pending requests to "denied"
+//      once their meeting starts (so they correctly become no-shows)
+//   2. processClosedMeetings — for each meeting whose QR window has
+//      closed, generates no_show records for eligible brothers who
+//      didn't scan and don't have an approved absence
+//
+// Auto-creates fine records when a brother's no-show count hits 2.
+// ===================================================================
+
+const FINE_AMOUNT_DEFAULT = 25;
+
+function brotherIsEligible(brother) {
+  // Only Active brothers + New Members are subject to attendance
+  return brother.status === "Active" || brother.status === "New Member";
+}
+
+async function autoDenyPendingPastStart() {
+  if (!state.user || (!state.user.isExec && !state.user.isSgt)) return;
+
+  const now = Date.now();
+  const pending = state.absenceRequests.filter(r => r.status === "pending");
+  if (pending.length === 0) return;
+
+  for (const req of pending) {
+    const meeting = state.meetings.find(m => m.id === req.meetingId);
+    if (!meeting) continue;
+    const start = combineLocalDateTime(meeting.date, meeting.startTime);
+    if (!start || start.getTime() > now) continue;
+
+    // Meeting has started. Auto-deny.
+    try {
+      await absenceRequests.review(req.id, "denied",
+        "Auto-denied: not reviewed before meeting start time.");
+      console.log(`Auto-denied request for ${req.brotherName} / ${req.meetingTitle}`);
+    } catch (e) {
+      console.warn("Auto-deny failed (non-approver?):", e);
+    }
+  }
+}
+
+async function processClosedMeetings() {
+  if (!state.user || (!state.user.isExec && !state.user.isSgt)) return;
+
+  // Closed meetings = QR window has passed
+  const closedMeetings = state.meetings.filter(m => qrWindow(m).isPast);
+  if (closedMeetings.length === 0) return;
+
+  // Eligible brothers (Active + New Member only)
+  const eligible = state.roster.filter(brotherIsEligible);
+  if (eligible.length === 0) return;
+
+  for (const meeting of closedMeetings) {
+    const meetingId = meeting.id;
+    const meetingQuarter = meeting.quarter;
+
+    // Brothers who scanned for this meeting
+    const present = new Set(
+      state.attendance.filter(a => a.meetingId === meetingId).map(a => a.brotherKey)
+    );
+
+    // Existing no-show records for this meeting
+    const existingNoShows = new Set(
+      state.noShows.filter(n => n.meetingId === meetingId).map(n => n.brotherKey)
+    );
+
+    for (const brother of eligible) {
+      if (present.has(brother.key)) continue;        // Marked present
+      if (existingNoShows.has(brother.key)) continue; // Already recorded
+
+      // Did this brother have an approved absence for this meeting?
+      const myReq = state.absenceRequests.find(r =>
+        r.meetingId === meetingId && r.brotherKey === brother.key
+      );
+      if (myReq && myReq.status === "approved") continue; // Excused — no no-show
+
+      // Determine reason for the no-show record
+      let reason = "no_qr_scan";
+      if (myReq && myReq.status === "denied") {
+        reason = myReq.reviewerNote?.startsWith("Auto-denied")
+          ? "pending_at_start"
+          : "denied_request";
+      }
+
+      // Compute count: how many no-shows does this brother already have THIS QUARTER?
+      const priorCount = state.noShows.filter(n =>
+        n.brotherKey === brother.key &&
+        n.quarter === meetingQuarter &&
+        // Don't count overturned appeals
+        n.appealStatus !== "overturned"
+      ).length;
+      const newCount = priorCount + 1;
+
+      try {
+        await noShows.create({
+          brotherKey: brother.key,
+          brotherName: `${brother.firstName} ${brother.lastName}`,
+          email: brother.email,
+          meetingId,
+          meetingTitle: meeting.title,
+          meetingDate: meeting.date,
+          reason,
+          count: newCount,
+          quarter: meetingQuarter,
+        });
+        console.log(`No-show recorded: ${brother.firstName} (count: ${newCount})`);
+
+        // 2nd no-show triggers a $25 fine
+        if (newCount === 2) {
+          // Idempotency: only create if no existing pending fine for this meeting
+          const existingFine = state.fines.find(f =>
+            f.brotherKey === brother.key && f.meetingId === meetingId
+          );
+          if (!existingFine) {
+            const amount = Number(state.settings.fineAmount) || FINE_AMOUNT_DEFAULT;
+            await fines.create({
+              brotherKey: brother.key,
+              brotherName: `${brother.firstName} ${brother.lastName}`,
+              email: brother.email,
+              amount,
+              reason: "2nd no-show",
+              meetingId,
+              meetingTitle: meeting.title,
+              meetingDate: meeting.date,
+              quarter: meetingQuarter,
+            });
+            console.log(`Fine created: $${amount} for ${brother.firstName}`);
+          }
+        }
+      } catch (e) {
+        console.warn(`No-show creation failed for ${brother.firstName}:`, e);
+      }
+    }
+  }
+}
+
+// Manually triggerable from the Meetings tab (exec button on past meetings)
+async function manualProcessMeeting(meetingId) {
+  const meeting = state.meetings.find(m => m.id === meetingId);
+  if (!meeting) return;
+  if (!qrWindow(meeting).isPast) {
+    return toast("Meeting hasn't ended yet", true);
+  }
+  toast("Processing no-shows...");
+  await autoDenyPendingPastStart();
+  await processClosedMeetings();
+  toast("No-shows processed");
+}
+
+// ===================================================================
+// STAGE 4 — APPEAL MODAL
+// ===================================================================
+
+let currentAppealNoShowId = null;
+
+function openAppealModal(noShowId) {
+  const ns = state.noShows.find(n => n.id === noShowId);
+  if (!ns) return;
+  currentAppealNoShowId = noShowId;
+  $("appeal-meeting-title").textContent = ns.meetingTitle || "Meeting";
+  $("appeal-meeting-meta").textContent =
+    `${fmtDateLong(ns.meetingDate || "")} • ${noShowReasonLabel(ns.reason)}`;
+  $("appeal-reason").value = "";
+  $("appeal-modal").classList.add("visible");
+  setTimeout(() => $("appeal-reason").focus(), 100);
+}
+
+async function submitAppeal() {
+  const reason = $("appeal-reason").value.trim();
+  if (reason.length < 20) {
+    return toast("Be specific in your appeal (20+ characters)", true);
+  }
+  if (!currentAppealNoShowId) return;
+  try {
+    await noShows.appeal(currentAppealNoShowId, reason);
+    $("appeal-modal").classList.remove("visible");
+    toast("Appeal submitted — Sgt-at-Arms will review");
+    currentAppealNoShowId = null;
+  } catch (e) {
+    console.error(e);
+    toast("Could not submit appeal", true);
+  }
 }
 
 // ===================================================================
@@ -574,6 +836,8 @@ function renderMeetingsTab() {
     b.addEventListener("click", () => deleteMeeting(b.dataset.del)));
   listWrap.querySelectorAll("[data-roll]").forEach(b =>
     b.addEventListener("click", () => openRollSheet(b.dataset.roll)));
+  listWrap.querySelectorAll("[data-process]").forEach(b =>
+    b.addEventListener("click", () => manualProcessMeeting(b.dataset.process)));
 }
 
 // Form shell — built once. The mandatory-cap text is in a child element we
@@ -757,6 +1021,7 @@ function renderMeetingRow(m, isExec) {
         </span>
         <button class="btn btn-ghost btn-small" data-qr="${m.id}">QR</button>
         ${isExec ? `<button class="btn btn-ghost btn-small" data-roll="${m.id}">Roll</button>` : ""}
+        ${isExec && isPast ? `<button class="btn btn-ghost btn-small" data-process="${m.id}">Process</button>` : ""}
         ${isExec ? `<button class="btn btn-danger btn-small" data-del="${m.id}">Delete</button>` : ""}
       </div>
     </div>
@@ -862,6 +1127,14 @@ $("roll-sheet-modal").addEventListener("click", e => {
   if (e.target === $("roll-sheet-modal")) $("roll-sheet-modal").classList.remove("visible");
 });
 
+// Appeal modal handlers (Stage 4)
+$("appeal-modal-close").addEventListener("click", () => $("appeal-modal").classList.remove("visible"));
+$("appeal-cancel").addEventListener("click", () => $("appeal-modal").classList.remove("visible"));
+$("appeal-modal").addEventListener("click", e => {
+  if (e.target === $("appeal-modal")) $("appeal-modal").classList.remove("visible");
+});
+$("appeal-submit").addEventListener("click", submitAppeal);
+
 // ===================================================================
 // URL HASH ROUTING (#meeting=ID auto-opens Roll Call after QR scan)
 // ===================================================================
@@ -935,15 +1208,17 @@ function renderAbsenceTab() {
   if (!wrap) return;
 
   const isApprover = !!(state.user && state.user.isApprover);
+  const isSgt = !!(state.user && state.user.isSgt);
   const isBrother = !!(state.user && state.user.rosterEntry);
-  const formKey = `${isApprover ? "approver" : "x"}|${isBrother ? "brother" : "x"}|${state.user?.email || "guest"}`;
+  const formKey = `${isApprover ? "approver" : "x"}|${isSgt ? "sgt" : "x"}|${isBrother ? "brother" : "x"}|${state.user?.email || "guest"}`;
 
   if (_absenceFormBuiltFor !== formKey) {
     wrap.innerHTML = `
+      ${isSgt ? `<div id="appeals-queue-container"></div>` : ""}
       ${isApprover ? `<div id="approver-queue-container"></div>` : ""}
       ${isBrother ? renderAbsenceFormShell() : ""}
       <div id="my-requests-container"></div>
-      ${!isBrother && !isApprover ? renderAbsenceGuestState() : ""}
+      ${!isBrother && !isApprover && !isSgt ? renderAbsenceGuestState() : ""}
     `;
 
     if (isBrother) {
@@ -962,6 +1237,9 @@ function renderAbsenceTab() {
   }
   if (isApprover) {
     renderApproverQueue();
+  }
+  if (isSgt) {
+    renderAppealsQueue();
   }
 }
 
@@ -1384,19 +1662,291 @@ async function handleReviewDecision(id, decision) {
   }
 }
 
+// ===================================================================
+// STAGE 4 — APPEALS QUEUE  (Sgt-at-Arms reviews)
+// ===================================================================
+
+function renderAppealsQueue() {
+  const wrap = $("appeals-queue-container");
+  if (!wrap) return;
+
+  const pendingAppeals = state.noShows
+    .filter(n => n.appealed && n.appealStatus === "pending")
+    .filter(inQuarter)
+    .sort((a, b) => (a.appealedAt || 0) - (b.appealedAt || 0));
+
+  const recentAppeals = state.noShows
+    .filter(n => n.appealed && n.appealStatus !== "pending")
+    .filter(inQuarter)
+    .sort((a, b) => (b.appealResolvedAt || 0) - (a.appealResolvedAt || 0))
+    .slice(0, 10);
+
+  if (pendingAppeals.length === 0 && recentAppeals.length === 0) {
+    wrap.innerHTML = "";
+    return;
+  }
+
+  wrap.innerHTML = `
+    ${pendingAppeals.length > 0 ? `
+      <div class="card judicial">
+        <div class="card-title">No-Show Appeals</div>
+        <div class="card-sub">${pendingAppeals.length} pending &middot; Sgt-at-Arms decides</div>
+        <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 14px;">
+          ${pendingAppeals.map(n => renderAppealCard(n)).join("")}
+        </div>
+      </div>` : ""}
+
+    ${recentAppeals.length > 0 ? `
+      <div class="card">
+        <div class="card-title" style="font-size: 18px;">Recent Appeals</div>
+        <div class="card-sub">Last 10 decisions</div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px;">
+          ${recentAppeals.map(n => renderAppealReviewedRow(n)).join("")}
+        </div>
+      </div>` : ""}
+  `;
+
+  wrap.querySelectorAll("[data-overturn]").forEach(b =>
+    b.addEventListener("click", () => handleAppealDecision(b.dataset.overturn, "overturned")));
+  wrap.querySelectorAll("[data-uphold]").forEach(b =>
+    b.addEventListener("click", () => handleAppealDecision(b.dataset.uphold, "upheld")));
+}
+
+function renderAppealCard(n) {
+  const submittedAgo = n.appealedAt ? relativeTime(n.appealedAt) : "—";
+  const sequence = ["1st", "2nd", "3rd", "4th+"][Math.min(n.count - 1, 3)] || "";
+  return `
+    <div style="padding: 18px 20px; background: white; border: 1px solid rgba(170,151,103,0.3); border-left: 3px solid var(--dagger);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+        <div style="flex: 1; min-width: 200px;">
+          <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--dagger);">
+            ${escapeHtml(n.brotherName)}
+          </div>
+          <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.5px; margin-top: 3px;">
+            ${sequence} no-show &middot; ${escapeHtml(n.meetingTitle || "Meeting")} &middot; ${escapeHtml(fmtDate(n.meetingDate || ""))}
+          </div>
+          <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 3px; font-style: italic;">
+            ${escapeHtml(noShowReasonLabel(n.reason))}
+          </div>
+        </div>
+      </div>
+
+      <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 12px; line-height: 1.55; padding: 12px 14px; background: var(--paper); border-left: 2px solid var(--key-gold);">
+        <div style="font-family: Arial, sans-serif; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--garnet); font-weight: bold; margin-bottom: 4px;">Appeal reason</div>
+        ${escapeHtml(n.appealReason || "")}
+      </div>
+
+      <div style="margin-top: 14px;">
+        <label for="appeal-note-${n.id}" style="margin: 0 0 4px;">Note <span style="font-weight: normal; text-transform: none; letter-spacing: 0; color: var(--true-gold); font-style: italic;">(brother sees this)</span></label>
+        <input type="text" id="appeal-note-${n.id}" placeholder="e.g. 'Overturned — confirmed with health center'" autocomplete="off">
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
+        <button class="btn" data-overturn="${n.id}">Overturn (remove no-show)</button>
+        <button class="btn btn-danger" data-uphold="${n.id}">Uphold (no-show stands)</button>
+        <span style="flex: 1; text-align: right; font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
+          Appealed ${submittedAgo}
+        </span>
+      </div>
+    </div>`;
+}
+
+function renderAppealReviewedRow(n) {
+  const color = n.appealStatus === "overturned" ? "var(--garnet)" : "var(--memphis-brick)";
+  const reviewerShort = (n.appealResolvedBy || "").split("@")[0];
+  return `
+    <div style="padding: 10px 14px; background: white; border-left: 3px solid ${color}; font-family: Georgia, serif; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap;">
+      <div>
+        <strong style="color: ${color};">${(n.appealStatus || "").toUpperCase()}</strong>
+        &middot; ${escapeHtml(n.brotherName)}
+        &middot; ${escapeHtml(n.meetingTitle || "Meeting")}
+      </div>
+      <span style="font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
+        by ${escapeHtml(reviewerShort)} ${n.appealResolvedAt ? relativeTime(n.appealResolvedAt) : ""}
+      </span>
+    </div>`;
+}
+
+async function handleAppealDecision(id, decision) {
+  if (!state.user || (!state.user.isSgt && !state.user.isExec)) {
+    return toast("Only Sgt-at-Arms can resolve appeals", true);
+  }
+  const noteInput = $(`appeal-note-${id}`);
+  const note = noteInput ? noteInput.value.trim() : "";
+  try {
+    await noShows.resolveAppeal(id, decision, note);
+
+    // If overturned, remove any associated fine
+    if (decision === "overturned") {
+      const ns = state.noShows.find(n => n.id === id);
+      if (ns) {
+        const associatedFine = state.fines.find(f =>
+          f.brotherKey === ns.brotherKey &&
+          f.meetingId === ns.meetingId &&
+          f.status === "pending"
+        );
+        if (associatedFine) {
+          try {
+            await fines.waive(associatedFine.id, "Appeal overturned no-show");
+          } catch (e) { console.warn("Could not waive associated fine:", e); }
+        }
+      }
+    }
+    toast(`Appeal ${decision}`);
+  } catch (e) {
+    console.error(e);
+    toast("Could not resolve appeal", true);
+  }
+}
+
+// ===================================================================
+// REPORTS TAB  (Stage 4 — treasurer fine ledger; Stage 5 will add more)
+// ===================================================================
+
 function renderReportsTab() {
   const wrap = $("reports-content");
   if (!wrap) return;
+
+  const isExec = !!(state.user && state.user.isExec);
+  const isTreasurer = !!(state.user && state.user.isTreasurer);
+
+  if (!isExec && !isTreasurer) {
+    wrap.innerHTML = `
+      <div class="card">
+        <div class="empty-coming-soon">
+          <h3>Exec Reports</h3>
+          <p style="margin-top: 12px;">This area is for exec officers only.</p>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // Filter to selected quarter
+  const pendingFines = state.fines.filter(f => f.status === "pending").filter(inQuarter);
+  const paidFines    = state.fines.filter(f => f.status === "paid").filter(inQuarter);
+  const waivedFines  = state.fines.filter(f => f.status === "waived").filter(inQuarter);
+
+  const pendingTotal = pendingFines.reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
+  const paidTotal    = paidFines.reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
+
+  // Sort by date descending
+  const sortByDate = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
+  pendingFines.sort(sortByDate);
+  paidFines.sort(sortByDate);
+
   wrap.innerHTML = `
+    <div class="card danger">
+      <div class="card-title">Treasurer's Fine Ledger</div>
+      <div class="card-sub">${formatQuarter(state.selectedQuarter)} &middot; ${pendingFines.length} pending, ${paidFines.length} collected</div>
+
+      <div class="standing-grid" style="margin-top: 14px;">
+        <div class="standing-tile fines">
+          <div class="num">$${pendingTotal}</div>
+          <div class="label">Outstanding</div>
+          <div class="sub">${pendingFines.length} brother${pendingFines.length === 1 ? "" : "s"}</div>
+        </div>
+        <div class="standing-tile absences">
+          <div class="num">$${paidTotal}</div>
+          <div class="label">Collected</div>
+          <div class="sub">${paidFines.length} fine${paidFines.length === 1 ? "" : "s"}</div>
+        </div>
+        <div class="standing-tile no-shows">
+          <div class="num">${waivedFines.length}</div>
+          <div class="label">Waived</div>
+          <div class="sub">via appeal</div>
+        </div>
+        <div class="standing-tile standing">
+          <div class="num">$${pendingTotal + paidTotal}</div>
+          <div class="label">Total Levied</div>
+          <div class="sub">this quarter</div>
+        </div>
+      </div>
+
+      ${pendingFines.length === 0
+        ? `<div class="empty" style="margin-top: 18px;">No outstanding fines.</div>`
+        : `<div style="margin-top: 22px;">
+            <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--memphis-brick); margin-bottom: 10px;">
+              Pending Collection
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              ${pendingFines.map(f => renderFineRow(f, "pending")).join("")}
+            </div>
+          </div>`}
+
+      ${paidFines.length > 0 ? `
+        <div style="margin-top: 22px;">
+          <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16px; font-weight: 600; color: var(--garnet); margin-bottom: 10px;">
+            Collected (Paid)
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            ${paidFines.slice(0, 20).map(f => renderFineRow(f, "paid")).join("")}
+          </div>
+        </div>` : ""}
+    </div>
+
     <div class="card">
       <div class="empty-coming-soon">
         <span class="stage-tag">Stage 5 — Coming Soon</span>
-        <h3>Reports</h3>
+        <h3>Excel Exports + 50% Watchlist</h3>
         <p style="margin-top: 12px; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.6;">
-          Quarterly attendance reports, no-show ledger, fine ledger for treasurer, and the &lt;50% participation watchlist (Article VI §12) will be Excel exports here.
+          Quarterly attendance Excel reports, no-show ledger export, treasurer fine ledger as XLSX, and the &lt;50% participation watchlist (Article VI §12) covering both meetings AND events from the event tracker — all coming in Stage 5.
         </p>
       </div>
+    </div>
+  `;
+
+  wrap.querySelectorAll("[data-paid]").forEach(b =>
+    b.addEventListener("click", () => handleMarkFinePaid(b.dataset.paid)));
+  wrap.querySelectorAll("[data-waive]").forEach(b =>
+    b.addEventListener("click", () => handleWaiveFine(b.dataset.waive)));
+}
+
+function renderFineRow(f, mode) {
+  const ago = f.createdAt ? relativeTime(f.createdAt) : "";
+  const paidAgo = f.paidAt ? relativeTime(f.paidAt) : "";
+
+  return `
+    <div style="padding: 10px 14px; background: white; border-left: 3px solid ${mode === "pending" ? "var(--memphis-brick)" : "var(--garnet)"}; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 200px;">
+        <div style="font-family: Georgia, serif; font-size: 14px;">
+          <strong>${escapeHtml(f.brotherName)}</strong>
+          &middot; <span style="color: ${mode === "pending" ? "var(--memphis-brick)" : "var(--garnet)"}; font-weight: bold;">$${f.amount}</span>
+          &middot; <span style="color: var(--slate); font-size: 12px;">${escapeHtml(f.reason || "")}</span>
+        </div>
+        <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 3px; letter-spacing: 0.5px;">
+          ${escapeHtml(f.meetingTitle || "")} &middot; ${escapeHtml(fmtDate(f.meetingDate || ""))} &middot; created ${ago}
+          ${mode === "paid" ? ` &middot; paid ${paidAgo}` : ""}
+        </div>
+      </div>
+      ${mode === "pending" ? `
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-small" data-paid="${f.id}">Mark Paid</button>
+          <button class="btn btn-ghost btn-small" data-waive="${f.id}">Waive</button>
+        </div>` : ""}
     </div>`;
+}
+
+async function handleMarkFinePaid(id) {
+  if (!confirm("Mark this fine as paid? This action is logged.")) return;
+  try {
+    await fines.markPaid(id);
+    toast("Fine marked paid");
+  } catch (e) {
+    console.error(e);
+    toast("Update failed — treasurer/exec only", true);
+  }
+}
+
+async function handleWaiveFine(id) {
+  const reason = prompt("Reason for waiving this fine? (Optional but recommended)");
+  if (reason === null) return; // user cancelled
+  try {
+    await fines.waive(id, reason || "");
+    toast("Fine waived");
+  } catch (e) {
+    console.error(e);
+    toast("Update failed — treasurer/exec only", true);
+  }
 }
 
 // ===================================================================
@@ -1409,6 +1959,7 @@ function renderSettings() {
   $("setting-secretary-email").value = state.settings.secretaryEmail || SECRETARY_EMAIL;
   $("setting-president-email").value = state.settings.presidentEmail || PRESIDENT_EMAIL;
   $("setting-ivp-email").value = state.settings.ivpEmail || IVP_EMAIL;
+  $("setting-fine-amount").value = state.settings.fineAmount || FINE_AMOUNT_DEFAULT;
   $("setting-notes").value = state.settings.notes || "";
 }
 
@@ -1424,6 +1975,7 @@ $("settings-save").addEventListener("click", async () => {
       secretaryEmail:    $("setting-secretary-email").value.trim().toLowerCase(),
       presidentEmail:    $("setting-president-email").value.trim().toLowerCase(),
       ivpEmail:          $("setting-ivp-email").value.trim().toLowerCase(),
+      fineAmount:        Math.max(0, Math.min(500, Number($("setting-fine-amount").value) || FINE_AMOUNT_DEFAULT)),
       notes:             $("setting-notes").value.trim(),
     });
     toast("Settings saved");
