@@ -98,8 +98,33 @@
     </div>
 
     <div class="card exec-only">
-      <div class="card-title">Notification Recipients</div>
-      <div class="card-sub">Who gets emailed for what</div>
+      <div class="card-title">Approver Officers</div>
+      <div class="card-sub">Review absence requests &middot; Editable for term transitions</div>
+
+      <div style="margin-top: 8px; padding: 12px 14px; background: var(--khaki); border-left: 3px solid var(--burgundy); font-family: Georgia, serif; font-size: 12px; line-height: 1.5;">
+        <strong style="color: var(--burgundy);">⚠ Officer Transition Note:</strong> updating these emails changes the UI immediately, but Firestore security rules ALSO need to be updated when officers actually rotate, otherwise the new officers won't be able to approve. Ping the dev (or follow the rules-update walkthrough in the project docs) when officers change.
+      </div>
+
+      <div class="settings-row" style="margin-top: 14px;">
+        <label for="setting-president-email">President</label>
+        <input type="email" id="setting-president-email" placeholder="pthomsak@gmail.com">
+        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--true-gold);">Approver</span>
+      </div>
+      <div class="settings-row">
+        <label for="setting-ivp-email">Internal VP</label>
+        <input type="email" id="setting-ivp-email" placeholder="ryansalridge@gmail.com">
+        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--true-gold);">Approver</span>
+      </div>
+      <div class="settings-row">
+        <label for="setting-secretary-email">Secretary</label>
+        <input type="email" id="setting-secretary-email" placeholder="davidbnavarrojr@gmail.com">
+        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--true-gold);">Approver &middot; Under-48hr contact</span>
+      </div>
+    </div>
+
+    <div class="card exec-only">
+      <div class="card-title">Discipline Officers</div>
+      <div class="card-sub">Notification recipients for no-shows + fines</div>
 
       <div class="settings-row">
         <label for="setting-sgt-email">Sergeant-at-Arms</label>
@@ -115,11 +140,6 @@
         <label for="setting-treasurer-email">Treasurer</label>
         <input type="email" id="setting-treasurer-email" placeholder="david.mescobedo20@gmail.com">
         <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--true-gold);">All fine notices</span>
-      </div>
-      <div class="settings-row">
-        <label for="setting-secretary-email">Secretary</label>
-        <input type="email" id="setting-secretary-email" placeholder="davidbnavarrojr@gmail.com">
-        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--true-gold);">Contact for under-48-hour absence requests</span>
       </div>
       <div class="settings-row">
         <label for="setting-notes">Internal Notes</label>
