@@ -63,6 +63,7 @@ export const APPROVER_EMAILS = new Set([
 
 export const SGT_AT_ARMS_EMAIL = "nikkranjith21@gmail.com";
 export const TREASURER_EMAIL   = "david.mescobedo20@gmail.com";
+export const SECRETARY_EMAIL   = "davidbnavarrojr@gmail.com";
 
 // ===================================================================
 // AUTH
@@ -266,6 +267,11 @@ export const absenceRequests = {
       reviewedBy:   currentUser?.email || null,
       reviewerNote: note || "",
     });
+  },
+
+  // Brother cancels their own pending request
+  async cancel(id) {
+    await deleteDoc(doc(fs, "absence_requests", id));
   },
 };
 
