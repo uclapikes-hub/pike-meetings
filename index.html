@@ -142,6 +142,11 @@
         <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--true-gold);">All fine notices</span>
       </div>
       <div class="settings-row">
+        <label for="setting-fine-amount">Fine Amount ($)</label>
+        <input type="number" id="setting-fine-amount" min="0" max="500" placeholder="25">
+        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--true-gold);">Charged on 2nd no-show</span>
+      </div>
+      <div class="settings-row">
         <label for="setting-notes">Internal Notes</label>
         <textarea id="setting-notes" rows="2" placeholder="Anything exec wants to remember about this term..."></textarea>
         <span></span>
@@ -168,8 +173,8 @@
           <span style="color: var(--true-gold); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
-          <span>Stage 4: No-show enforcement &amp; fines</span>
-          <span style="color: var(--true-gold); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;">Pending</span>
+          <span><strong style="color: var(--garnet);">Stage 4: No-show enforcement &amp; fines</strong> &mdash; auto-deny, fines, appeals, treasurer ledger</span>
+          <span style="color: var(--true-gold); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0;">
           <span>Stage 5: Email notifications + reports</span>
@@ -213,6 +218,26 @@
         <div class="roll-sheet-header roll-absent">Not Yet Marked</div>
         <div id="roll-sheet-absent" class="roll-sheet-list"></div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== APPEAL MODAL  (Stage 4) ============== -->
+<div class="modal" id="appeal-modal">
+  <div class="modal-card">
+    <button class="modal-close" id="appeal-modal-close">×</button>
+    <div class="modal-title" id="appeal-meeting-title">Meeting</div>
+    <div class="modal-meta" id="appeal-meeting-meta"></div>
+
+    <p style="font-family: Georgia, serif; font-size: 13px; line-height: 1.5; margin-top: 14px; text-align: left; color: var(--slate);">
+      Explain why this no-show should be overturned. The Sergeant-at-Arms will review.
+    </p>
+
+    <textarea id="appeal-reason" rows="5" placeholder="Example: I was at the hospital with my dad — happy to forward the discharge paperwork to the secretary." style="margin-top: 6px;" autocomplete="off"></textarea>
+
+    <div style="margin-top: 14px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+      <button class="btn btn-ghost" id="appeal-cancel">Cancel</button>
+      <button class="btn" id="appeal-submit">Submit Appeal</button>
     </div>
   </div>
 </div>
