@@ -15,6 +15,7 @@ import {
   authApi, roster, meetings, attendance, absenceRequests,
   noShows, fines, settings,
   EXEC_EMAILS, APPROVER_EMAILS, SGT_AT_ARMS_EMAIL, TREASURER_EMAIL, SECRETARY_EMAIL,
+  PRESIDENT_EMAIL, IVP_EMAIL,
 } from "./data.js";
 import {
   currentQuarter, formatQuarter, quartersFromRecords,
@@ -1406,6 +1407,8 @@ function renderSettings() {
   $("setting-sgt-email").value = state.settings.sgtAtArmsEmail || SGT_AT_ARMS_EMAIL;
   $("setting-treasurer-email").value = state.settings.treasurerEmail || TREASURER_EMAIL;
   $("setting-secretary-email").value = state.settings.secretaryEmail || SECRETARY_EMAIL;
+  $("setting-president-email").value = state.settings.presidentEmail || PRESIDENT_EMAIL;
+  $("setting-ivp-email").value = state.settings.ivpEmail || IVP_EMAIL;
   $("setting-notes").value = state.settings.notes || "";
 }
 
@@ -1419,6 +1422,8 @@ $("settings-save").addEventListener("click", async () => {
       sgtAtArmsEmail:    $("setting-sgt-email").value.trim().toLowerCase(),
       treasurerEmail:    $("setting-treasurer-email").value.trim().toLowerCase(),
       secretaryEmail:    $("setting-secretary-email").value.trim().toLowerCase(),
+      presidentEmail:    $("setting-president-email").value.trim().toLowerCase(),
+      ivpEmail:          $("setting-ivp-email").value.trim().toLowerCase(),
       notes:             $("setting-notes").value.trim(),
     });
     toast("Settings saved");
