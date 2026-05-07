@@ -155,6 +155,21 @@
       <button class="btn" id="settings-save">Save Settings</button>
     </div>
 
+    <div class="card exec-only">
+      <div class="card-title">Maintenance</div>
+      <div class="card-sub">Cleanup utilities for exec only</div>
+
+      <p style="font-family: Georgia, serif; font-size: 13px; line-height: 1.5; color: var(--slate); margin-top: 8px;">
+        If a meeting was deleted before Stage 4's cascade fix, its no-shows and fines may have been left behind as orphans. This button finds any no-show, fine, attendance record, or absence request whose meeting no longer exists and deletes them.
+      </p>
+      <p style="font-family: Georgia, serif; font-size: 12px; font-style: italic; color: var(--burgundy); margin-top: 8px;">
+        Safe to run anytime. Only deletes data that has nothing to point to. Cannot be undone.
+      </p>
+
+      <button class="btn btn-danger" id="settings-cleanup-orphans" style="margin-top: 14px;">Clean Up Orphaned Records</button>
+      <span id="settings-cleanup-status" style="margin-left: 14px; font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1px; color: var(--true-gold); text-transform: uppercase;"></span>
+    </div>
+
     <div class="card">
       <div class="card-title">Build Status</div>
       <div class="card-sub">What's live right now</div>
