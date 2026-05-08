@@ -390,3 +390,33 @@ export const settings = {
     await setDoc(doc(fs, "settings", "main"), data, { merge: true });
   },
 };
+
+// ===================================================================
+// EVENT TRACKER COLLECTIONS  (read-only here — managed by the event tracker app)
+// Used by the 50% Participation Watchlist + Combined Participation Report
+// ===================================================================
+
+export const events = {
+  subscribe(callback) {
+    const q = query(collection(fs, "events"), orderBy("date", "desc"));
+    return onSnapshot(q, snap => {
+      callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, err => {
+      // Event tracker collections may not exist yet — that's fine
+      console.warn("events subscription error:", err);
+      callback([]);
+    });
+  },
+};
+
+export const checkins = {
+  subscribe(callback) {
+    const q = query(collection(fs, "checkins"), orderBy("timestamp", "desc"));
+    return onSnapshot(q, snap => {
+      callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, err => {
+      console.warn("checkins subscription error:", err);
+      callback([]);
+    });
+  },
+};
