@@ -13,7 +13,7 @@
 
 import {
   authApi, roster, meetings, attendance, absenceRequests,
-  noShows, fines, settings,
+  noShows, fines, settings, events, checkins,
   EXEC_EMAILS, APPROVER_EMAILS, SGT_AT_ARMS_EMAIL, TREASURER_EMAIL, SECRETARY_EMAIL,
   PRESIDENT_EMAIL, IVP_EMAIL,
 } from "./data.js";
@@ -31,6 +31,8 @@ const state = {
   noShows: [],
   fines: [],
   settings: {},
+  events: [],     // Stage 5: from event tracker collection
+  checkins: [],   // Stage 5: from event tracker collection
   selectedQuarter: currentQuarter(),
   showPastMeetings: false,
 };
@@ -199,6 +201,14 @@ fines.subscribe(list => {
 settings.subscribe(s => {
   state.settings = s;
   renderSettings();
+});
+events.subscribe(list => {
+  state.events = list;
+  renderAll();
+});
+checkins.subscribe(list => {
+  state.checkins = list;
+  renderAll();
 });
 
 // ===================================================================
@@ -1895,13 +1905,24 @@ function renderReportsTab() {
         </div>` : ""}
     </div>
 
+    <div class="card judicial">
+      <div class="card-title">&lt;50% Participation Watchlist</div>
+      <div class="card-sub">Article VI §12 &middot; Combined meetings + chapter events &middot; ${formatQuarter(state.selectedQuarter)}</div>
+      ${renderWatchlistSection()}
+    </div>
+
     <div class="card">
-      <div class="empty-coming-soon">
-        <span class="stage-tag">Stage 5 — Coming Soon</span>
-        <h3>Excel Exports + 50% Watchlist</h3>
-        <p style="margin-top: 12px; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.6;">
-          Quarterly attendance Excel reports, no-show ledger export, treasurer fine ledger as XLSX, and the &lt;50% participation watchlist (Article VI §12) covering both meetings AND events from the event tracker — all coming in Stage 5.
-        </p>
+      <div class="card-title">Excel Reports</div>
+      <div class="card-sub">Download as .xlsx &middot; Filtered to ${formatQuarter(state.selectedQuarter)}</div>
+      <p style="font-family: Georgia, serif; font-size: 13px; line-height: 1.5; color: var(--slate); margin-top: 8px; margin-bottom: 14px;">
+        Each export pulls live data for the selected quarter. Hand to chapter standards / Sgt-at-Arms / treasurer / secretary as appropriate.
+      </p>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+        <button class="btn btn-ghost btn-small" data-export="attendance">Quarterly Attendance per Brother</button>
+        <button class="btn btn-ghost btn-small" data-export="noshows">No-Show Ledger</button>
+        <button class="btn btn-ghost btn-small" data-export="fines">Fine Ledger (Treasurer)</button>
+        <button class="btn btn-ghost btn-small" data-export="absences">Absence Request History</button>
+        <button class="btn btn-ghost btn-small" data-export="combined">Combined Participation Report</button>
       </div>
     </div>
   `;
@@ -1910,6 +1931,280 @@ function renderReportsTab() {
     b.addEventListener("click", () => handleMarkFinePaid(b.dataset.paid)));
   wrap.querySelectorAll("[data-waive]").forEach(b =>
     b.addEventListener("click", () => handleWaiveFine(b.dataset.waive)));
+  wrap.querySelectorAll("[data-export]").forEach(b =>
+    b.addEventListener("click", () => exportReport(b.dataset.export)));
+}
+
+// ===================================================================
+// STAGE 5 — PARTICIPATION WATCHLIST + EXCEL EXPORTS
+// ===================================================================
+
+// Per-brother participation data for the selected quarter.
+// Combines meetings (this app) + chapter events (event tracker collection).
+function computeParticipation() {
+  const eligible = state.roster.filter(brotherIsEligible);
+  const q = state.selectedQuarter;
+
+  // Meetings in quarter
+  const meetingsInQ = state.meetings.filter(m => q === "all" || m.quarter === q);
+  const meetingAttIn = state.attendance.filter(a => q === "all" || a.quarter === q);
+
+  // Events in quarter (from event tracker collection)
+  // Event tracker doesn't always stamp `quarter` on events, so derive from date if missing
+  const eventsInQ = state.events.filter(e => {
+    if (q === "all") return true;
+    if (e.quarter) return e.quarter === q;
+    if (!e.date) return false;
+    const [y, m] = e.date.split("-").map(Number);
+    const month = m - 1;
+    let derived;
+    if (month <= 2)      derived = `${y}-winter`;
+    else if (month <= 5) derived = `${y}-spring`;
+    else if (month <= 7) derived = `${y}-summer`;
+    else                 derived = `${y}-fall`;
+    return derived === q;
+  });
+  const eventCheckinsIn = state.checkins.filter(c => {
+    // Event tracker may stamp `quarter` or only `eventId`. Look up the event if needed.
+    if (q === "all") return true;
+    if (c.quarter) return c.quarter === q;
+    const ev = eventsInQ.find(e => e.id === c.eventId);
+    return !!ev;
+  });
+
+  return eligible.map(b => {
+    const mAttended = meetingAttIn.filter(a => a.brotherKey === b.key).length;
+    const eAttended = eventCheckinsIn.filter(c => c.brotherKey === b.key).length;
+    const totalEvents = meetingsInQ.length + eventsInQ.length;
+    const totalAttended = mAttended + eAttended;
+    const ratio = totalEvents > 0 ? totalAttended / totalEvents : 1;
+
+    const myNS  = state.noShows.filter(n => n.brotherKey === b.key && (q === "all" || n.quarter === q) && n.appealStatus !== "overturned");
+    const myAbs = state.absenceRequests.filter(r => r.brotherKey === b.key && (q === "all" || r.quarter === q));
+    const myFines = state.fines.filter(f => f.brotherKey === b.key && (q === "all" || f.quarter === q));
+
+    return {
+      brother: b,
+      meetingsAttended: mAttended,
+      meetingsTotal: meetingsInQ.length,
+      eventsAttended: eAttended,
+      eventsTotal: eventsInQ.length,
+      totalAttended,
+      totalEvents,
+      ratio,
+      onWatchlist: totalEvents >= 3 && ratio < 0.5,
+      noShows: myNS.length,
+      absencesApproved: myAbs.filter(r => r.status === "approved").length,
+      finesPending: myFines.filter(f => f.status === "pending").reduce((s, f) => s + Number(f.amount || 0), 0),
+      finesPaid:    myFines.filter(f => f.status === "paid").reduce((s, f) => s + Number(f.amount || 0), 0),
+    };
+  });
+}
+
+function renderWatchlistSection() {
+  const all = computeParticipation();
+  const watchlist = all.filter(p => p.onWatchlist).sort((a, b) => a.ratio - b.ratio);
+
+  if (state.events.length === 0 && state.meetings.length === 0) {
+    return `<div class="empty">No meetings or events recorded yet this quarter.</div>`;
+  }
+  if (watchlist.length === 0) {
+    return `
+      <div style="margin-top: 14px; padding: 18px; background: var(--light-gold); border-left: 3px solid var(--garnet);">
+        <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--garnet);">
+          ✓ No brothers below 50% this quarter
+        </div>
+        <div style="font-family: Georgia, serif; font-size: 13px; color: var(--slate); margin-top: 6px;">
+          Watchlist only flags brothers with 3+ chapter events on record. Below that threshold, the sample size is too small to meaningfully judge participation.
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div style="margin-top: 14px;">
+      <div style="font-family: Georgia, serif; font-size: 13px; color: var(--slate); margin-bottom: 10px; line-height: 1.5;">
+        Brothers below 50% combined attendance (chapter meetings + chapter events) this quarter, per Article VI §12. Sgt-at-Arms / judicial board to review.
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        ${watchlist.map(p => `
+          <div style="padding: 12px 14px; background: white; border-left: 3px solid var(--dagger); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 200px;">
+              <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16px; font-weight: 600; color: var(--dagger);">
+                ${escapeHtml(p.brother.firstName + " " + p.brother.lastName)}
+                <span style="font-family: Arial; font-size: 9px; color: var(--knight-steel); letter-spacing: 1.5px; margin-left: 6px;">${escapeHtml((p.brother.status || "").toUpperCase())}</span>
+              </div>
+              <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); margin-top: 3px;">
+                ${p.totalAttended}/${p.totalEvents} attended &middot;
+                ${p.meetingsAttended}/${p.meetingsTotal} meetings &middot;
+                ${p.eventsAttended}/${p.eventsTotal} events
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 700; color: var(--memphis-brick);">
+                ${Math.round(p.ratio * 100)}%
+              </div>
+              <div style="font-family: Arial; font-size: 9px; letter-spacing: 1.5px; color: var(--memphis-brick); text-transform: uppercase; font-weight: bold;">
+                Below 50%
+              </div>
+            </div>
+          </div>`).join("")}
+      </div>
+    </div>`;
+}
+
+// ----- Excel exports -----
+function exportReport(kind) {
+  if (typeof XLSX === "undefined") {
+    return toast("Excel library not loaded — refresh the page", true);
+  }
+
+  const q = state.selectedQuarter;
+  const qLabel = formatQuarter(q).replace(/\s+/g, "-");
+  const today = new Date().toISOString().slice(0, 10);
+
+  let rows = [];
+  let filename = "";
+
+  switch (kind) {
+    case "attendance": {
+      const all = computeParticipation();
+      rows = all.map(p => ({
+        "Last Name":      p.brother.lastName,
+        "First Name":     p.brother.firstName,
+        "Status":         p.brother.status || "",
+        "Email":          p.brother.email || "",
+        "Meetings Total": p.meetingsTotal,
+        "Meetings Attended": p.meetingsAttended,
+        "Events Total":   p.eventsTotal,
+        "Events Attended": p.eventsAttended,
+        "Combined Total": p.totalEvents,
+        "Combined Attended": p.totalAttended,
+        "Attendance %":   p.totalEvents > 0 ? Math.round(p.ratio * 100) + "%" : "—",
+        "Below 50%":      p.onWatchlist ? "YES" : "",
+        "Free Absences Used": p.absencesApproved + "/3",
+        "No-Shows":       p.noShows,
+        "Fines Pending ($)": p.finesPending,
+        "Fines Paid ($)": p.finesPaid,
+      }));
+      filename = `pike-attendance-per-brother-${qLabel}-${today}.xlsx`;
+      break;
+    }
+
+    case "noshows": {
+      const ns = state.noShows
+        .filter(n => q === "all" || n.quarter === q)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      rows = ns.map(n => ({
+        "Brother":        n.brotherName || "",
+        "Email":          n.email || "",
+        "Meeting":        n.meetingTitle || "",
+        "Meeting Date":   n.meetingDate || "",
+        "Reason":         noShowReasonLabel(n.reason),
+        "Count (1/2/3)":  n.count,
+        "Quarter":        formatQuarter(n.quarter),
+        "Recorded At":    n.timestamp ? new Date(n.timestamp).toLocaleString() : "",
+        "Appealed":       n.appealed ? "Yes" : "",
+        "Appeal Status":  n.appealStatus || "",
+        "Appeal Reason":  n.appealReason || "",
+        "Appeal Note":    n.appealResolverNote || "",
+      }));
+      filename = `pike-noshow-ledger-${qLabel}-${today}.xlsx`;
+      break;
+    }
+
+    case "fines": {
+      const fl = state.fines
+        .filter(f => q === "all" || f.quarter === q)
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      rows = fl.map(f => ({
+        "Brother":        f.brotherName || "",
+        "Email":          f.email || "",
+        "Amount ($)":     f.amount || 0,
+        "Reason":         f.reason || "",
+        "Meeting":        f.meetingTitle || "",
+        "Meeting Date":   f.meetingDate || "",
+        "Status":         (f.status || "").toUpperCase(),
+        "Created":        f.createdAt ? new Date(f.createdAt).toLocaleString() : "",
+        "Paid At":        f.paidAt ? new Date(f.paidAt).toLocaleString() : "",
+        "Paid Marked By": f.paidMarkedBy || "",
+        "Waived At":      f.waivedAt ? new Date(f.waivedAt).toLocaleString() : "",
+        "Waive Reason":   f.waiveReason || "",
+        "Quarter":        formatQuarter(f.quarter),
+      }));
+      filename = `pike-fine-ledger-${qLabel}-${today}.xlsx`;
+      break;
+    }
+
+    case "absences": {
+      const reqs = state.absenceRequests
+        .filter(r => q === "all" || r.quarter === q)
+        .sort((a, b) => (b.submittedAt || 0) - (a.submittedAt || 0));
+      rows = reqs.map(r => ({
+        "Brother":        r.brotherName || "",
+        "Email":          r.email || "",
+        "Meeting":        r.meetingTitle || "",
+        "Meeting Date":   r.meetingDate || "",
+        "Mandatory":      r.mandatory ? "Yes" : "",
+        "Reason":         REASON_LABELS[r.reason] || r.reason || "",
+        "Description":    r.description || "",
+        "Status":         (r.status || "").toUpperCase(),
+        "Submitted":      r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "",
+        "Reviewed":       r.reviewedAt ? new Date(r.reviewedAt).toLocaleString() : "",
+        "Reviewed By":    r.reviewedBy || "",
+        "Reviewer Note":  r.reviewerNote || "",
+        "Quarter":        formatQuarter(r.quarter),
+      }));
+      filename = `pike-absence-requests-${qLabel}-${today}.xlsx`;
+      break;
+    }
+
+    case "combined": {
+      const all = computeParticipation()
+        .sort((a, b) => a.ratio - b.ratio);
+      rows = all.map(p => ({
+        "Last Name":          p.brother.lastName,
+        "First Name":         p.brother.firstName,
+        "Status":             p.brother.status || "",
+        "Email":              p.brother.email || "",
+        "Meetings Attended":  `${p.meetingsAttended} / ${p.meetingsTotal}`,
+        "Events Attended":    `${p.eventsAttended} / ${p.eventsTotal}`,
+        "Combined Attended":  `${p.totalAttended} / ${p.totalEvents}`,
+        "Participation %":    p.totalEvents > 0 ? Math.round(p.ratio * 100) + "%" : "—",
+        "Watchlist (<50%)":   p.onWatchlist ? "FLAGGED" : "",
+        "No-Shows":           p.noShows,
+        "Outstanding Fines":  "$" + p.finesPending,
+      }));
+      filename = `pike-participation-combined-${qLabel}-${today}.xlsx`;
+      break;
+    }
+
+    default:
+      return toast("Unknown export type", true);
+  }
+
+  if (rows.length === 0) {
+    return toast("No data to export for this quarter", true);
+  }
+
+  try {
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Auto-width columns based on header + max content length
+    const headers = Object.keys(rows[0]);
+    ws["!cols"] = headers.map(h => {
+      const maxLen = Math.max(
+        h.length,
+        ...rows.map(r => String(r[h] ?? "").length)
+      );
+      return { wch: Math.min(Math.max(maxLen + 2, 10), 50) };
+    });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, formatQuarter(q).slice(0, 30));
+    XLSX.writeFile(wb, filename);
+    toast(`Downloaded ${rows.length} row${rows.length === 1 ? "" : "s"}`);
+  } catch (e) {
+    console.error(e);
+    toast("Export failed — check console", true);
+  }
 }
 
 function renderFineRow(f, mode) {
