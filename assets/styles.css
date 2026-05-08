@@ -894,3 +894,87 @@ input:focus, select:focus, textarea:focus {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ===================================================================
+   STAGE 5B — IN-APP NOTIFICATIONS + FINE AURA
+   =================================================================== */
+
+/* ----- Severity-tinted modal accents ----- */
+.modal.notif-info .modal-card {
+  border-top: 4px solid var(--garnet);
+}
+.modal.notif-warning .modal-card {
+  border-top: 4px solid var(--key-gold);
+}
+.modal.notif-warning .modal-title {
+  color: var(--burgundy);
+}
+.modal.notif-danger .modal-card {
+  border-top: 4px solid var(--memphis-brick);
+  background: linear-gradient(180deg, rgba(156, 97, 103, 0.06) 0%, rgba(255, 255, 255, 0.97) 40%);
+}
+.modal.notif-danger .modal-title {
+  color: var(--memphis-brick);
+}
+.modal.notif-judicial .modal-card {
+  border-top: 4px solid var(--dagger);
+  background: linear-gradient(180deg, rgba(87, 42, 49, 0.08) 0%, rgba(255, 255, 255, 0.97) 40%);
+}
+.modal.notif-judicial .modal-title {
+  color: var(--dagger);
+  font-style: italic;
+}
+
+/* ===================================================================
+   FINE AURA  (Apple-Intelligence-style ambient glow)
+   -------------------------------------------------------------------
+   Activates only when body has .has-active-fine class.
+   Multi-color shifting gradient: Garnet → Old Gold → Burgundy.
+   40px+ blur radius creates ambient aura, not hard line.
+   4-second breathing pulse — alive but not strobing.
+   =================================================================== */
+
+body.has-active-fine::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9000;
+  /* Multi-shadow inset glow — three colors layered */
+  box-shadow:
+    inset 0 0 60px 15px  rgba(121, 36, 47, 0.40),    /* Garnet */
+    inset 0 0 110px 40px rgba(158, 137, 89, 0.20),   /* Old Gold */
+    inset 0 0 160px 70px rgba(87, 42, 49, 0.10);     /* Burgundy */
+  animation: fineAuraPulse 4s ease-in-out infinite;
+}
+
+@keyframes fineAuraPulse {
+  /* Garnet dominant */
+  0%, 100% {
+    box-shadow:
+      inset 0 0 50px 12px  rgba(121, 36, 47, 0.45),
+      inset 0 0 110px 40px rgba(158, 137, 89, 0.18),
+      inset 0 0 160px 70px rgba(87, 42, 49, 0.08);
+  }
+  /* Gold dominant — feels like a soft inhale */
+  33% {
+    box-shadow:
+      inset 0 0 70px 20px  rgba(158, 137, 89, 0.40),
+      inset 0 0 130px 50px rgba(121, 36, 47, 0.20),
+      inset 0 0 170px 80px rgba(87, 42, 49, 0.10);
+  }
+  /* Burgundy dominant — settles into shadow */
+  66% {
+    box-shadow:
+      inset 0 0 60px 18px  rgba(87, 42, 49, 0.45),
+      inset 0 0 120px 45px rgba(121, 36, 47, 0.22),
+      inset 0 0 180px 90px rgba(158, 137, 89, 0.10);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.has-active-fine::before {
+    animation: none;
+    box-shadow: inset 0 0 60px 15px rgba(121, 36, 47, 0.30);
+  }
+}
