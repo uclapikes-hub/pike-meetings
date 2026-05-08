@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -196,8 +197,8 @@
           <span style="color: var(--true-gold); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0;">
-          <span>Stage 5B: Email notifications (EmailJS)</span>
-          <span style="color: var(--true-gold); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;">Pending</span>
+          <span><strong style="color: var(--garnet);">Stage 5B: In-app notifications + fine aura</strong> &mdash; sign-in modals, judicial alerts, treasurer receipts</span>
+          <span style="color: var(--true-gold); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
       </div>
     </div>
@@ -257,6 +258,20 @@
     <div style="margin-top: 14px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
       <button class="btn btn-ghost" id="appeal-cancel">Cancel</button>
       <button class="btn" id="appeal-submit">Submit Appeal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============== NOTIFICATION MODAL  (Stage 5B) ============== -->
+<div class="modal" id="notif-modal">
+  <div class="modal-card">
+    <div class="modal-title" id="notif-title">Notification</div>
+    <div class="modal-meta" id="notif-meta"></div>
+
+    <p id="notif-message" style="font-family: Georgia, serif; font-size: 15px; line-height: 1.6; margin-top: 18px; text-align: left; color: var(--slate);"></p>
+
+    <div style="margin-top: 22px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+      <button class="btn" id="notif-ack">Got It</button>
     </div>
   </div>
 </div>
