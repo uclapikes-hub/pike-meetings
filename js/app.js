@@ -135,7 +135,10 @@ function relativeTime(dateOrTimestamp) {
 // ===================================================================
 // AUTH UI
 // ===================================================================
+let _hasShownWelcomePulse = false;
+
 authApi.onChange(user => {
+  const wasSignedIn = !!state.user;
   state.user = user;
 
   if (user) {
@@ -144,10 +147,18 @@ authApi.onChange(user => {
       `<strong>${escapeHtml(user.email)}</strong> <span class="role-pill role-${user.role}">${label}</span>`;
     $("auth-signin").style.display = "none";
     $("auth-signout").style.display = "";
+
+    // Welcome pulse — fire once per session on first sign-in
+    if (!wasSignedIn && !_hasShownWelcomePulse) {
+      _hasShownWelcomePulse = true;
+      document.body.classList.add("welcome-pulsing");
+      setTimeout(() => document.body.classList.remove("welcome-pulsing"), 1300);
+    }
   } else {
     $("auth-status").innerHTML = "Not signed in";
     $("auth-signin").style.display = "";
     $("auth-signout").style.display = "none";
+    _hasShownWelcomePulse = false; // Reset for next sign-in
   }
 
   document.body.classList.toggle("is-signed-in", !!user);
@@ -626,68 +637,81 @@ async function autoDenyPendingPastStart() {
   }
 }
 
+// Processing lock — prevents the timer from firing the processor while a
+// previous run is still in progress. The cache-based idempotency check below
+// is backed up by a direct Firestore query (noShows.exists) for safety.
+let _processingLock = false;
+
 async function processClosedMeetings() {
   if (!state.user || (!state.user.isExec && !state.user.isSgt)) return;
+  if (_processingLock) return; // Another run still in progress
+  _processingLock = true;
 
-  // Closed meetings = QR window has passed
-  const closedMeetings = state.meetings.filter(m => qrWindow(m).isPast);
-  if (closedMeetings.length === 0) return;
+  try {
+    // Closed meetings = QR window has passed
+    const closedMeetings = state.meetings.filter(m => qrWindow(m).isPast);
+    if (closedMeetings.length === 0) return;
 
-  // Eligible brothers (Active + New Member only)
-  const eligible = state.roster.filter(brotherIsEligible);
-  if (eligible.length === 0) return;
+    // Eligible brothers (Active + New Member only)
+    const eligible = state.roster.filter(brotherIsEligible);
+    if (eligible.length === 0) return;
 
-  for (const meeting of closedMeetings) {
-    const meetingId = meeting.id;
-    const meetingQuarter = meeting.quarter;
+    for (const meeting of closedMeetings) {
+      const meetingId = meeting.id;
+      const meetingQuarter = meeting.quarter;
 
-    // Brothers who scanned for this meeting
-    const present = new Set(
-      state.attendance.filter(a => a.meetingId === meetingId).map(a => a.brotherKey)
-    );
-
-    // Existing no-show records for this meeting
-    const existingNoShows = new Set(
-      state.noShows.filter(n => n.meetingId === meetingId).map(n => n.brotherKey)
-    );
-
-    for (const brother of eligible) {
-      if (present.has(brother.key)) continue;        // Marked present
-      if (existingNoShows.has(brother.key)) continue; // Already recorded
-
-      // Did this brother have an approved absence for this meeting?
-      const myReq = state.absenceRequests.find(r =>
-        r.meetingId === meetingId && r.brotherKey === brother.key
+      // Brothers who scanned for this meeting
+      const present = new Set(
+        state.attendance.filter(a => a.meetingId === meetingId).map(a => a.brotherKey)
       );
-      if (myReq && myReq.status === "approved") continue; // Excused — no no-show
 
-      // Determine reason for the no-show record
-      let reason = "no_qr_scan";
-      if (myReq && myReq.status === "denied") {
-        reason = myReq.reviewerNote?.startsWith("Auto-denied")
-          ? "pending_at_start"
-          : "denied_request";
-      }
+      // Cache-based existing no-shows (fast first pass)
+      const existingNoShows = new Set(
+        state.noShows.filter(n => n.meetingId === meetingId).map(n => n.brotherKey)
+      );
 
-      // Compute count: how many no-shows does this brother already have THIS QUARTER?
-      const priorCount = state.noShows.filter(n =>
-        n.brotherKey === brother.key &&
-        n.quarter === meetingQuarter &&
-        // Don't count overturned appeals
-        n.appealStatus !== "overturned"
-      ).length;
-      const newCount = priorCount + 1;
+      for (const brother of eligible) {
+        if (present.has(brother.key)) continue;        // Marked present
+        if (existingNoShows.has(brother.key)) continue; // Already in cache
 
-      try {
-        const fullName = `${brother.firstName} ${brother.lastName}`;
-        const noShowDocRef = await noShows.create({
-          brotherKey: brother.key,
-          brotherName: fullName,
-          email: brother.email,
-          meetingId,
-          meetingTitle: meeting.title,
-          meetingDate: meeting.date,
-          reason,
+        // Did this brother have an approved absence for this meeting?
+        const myReq = state.absenceRequests.find(r =>
+          r.meetingId === meetingId && r.brotherKey === brother.key
+        );
+        if (myReq && myReq.status === "approved") continue; // Excused
+
+        // STRONG IDEMPOTENCY: direct Firestore query before creating.
+        // This catches the cache-stale window where the subscription
+        // hasn't yet reflected a no_show that's already in the database.
+        const alreadyExists = await noShows.exists(brother.key, meetingId);
+        if (alreadyExists) continue;
+
+        // Determine reason for the no-show record
+        let reason = "no_qr_scan";
+        if (myReq && myReq.status === "denied") {
+          reason = myReq.reviewerNote?.startsWith("Auto-denied")
+            ? "pending_at_start"
+            : "denied_request";
+        }
+
+        // Compute count: how many no-shows does this brother already have THIS QUARTER?
+        const priorCount = state.noShows.filter(n =>
+          n.brotherKey === brother.key &&
+          n.quarter === meetingQuarter &&
+          n.appealStatus !== "overturned"
+        ).length;
+        const newCount = priorCount + 1;
+
+        try {
+          const fullName = `${brother.firstName} ${brother.lastName}`;
+          const noShowDocRef = await noShows.create({
+            brotherKey: brother.key,
+            brotherName: fullName,
+            email: brother.email,
+            meetingId,
+            meetingTitle: meeting.title,
+            meetingDate: meeting.date,
+            reason,
           count: newCount,
           quarter: meetingQuarter,
         });
@@ -696,10 +720,9 @@ async function processClosedMeetings() {
         // 2nd no-show triggers a $25 fine
         let fineAmount = Number(state.settings.fineAmount) || FINE_AMOUNT_DEFAULT;
         if (newCount === 2) {
-          const existingFine = state.fines.find(f =>
-            f.brotherKey === brother.key && f.meetingId === meetingId
-          );
-          if (!existingFine) {
+          // Direct query for strong idempotency on fine creation too
+          const fineExists = await fines.exists(brother.key, meetingId);
+          if (!fineExists) {
             await fines.create({
               brotherKey: brother.key,
               brotherName: fullName,
@@ -735,6 +758,9 @@ async function processClosedMeetings() {
         console.warn(`No-show creation failed for ${brother.firstName}:`, e);
       }
     }
+  }
+  } finally {
+    _processingLock = false;
   }
 }
 
@@ -2661,6 +2687,90 @@ $("settings-cleanup-orphans").addEventListener("click", async () => {
 
   $("settings-cleanup-status").textContent = `Cleaned ${deleted}${failed ? " (" + failed + " failed)" : ""} ✓`;
   toast(`Cleaned up ${deleted} orphan record${deleted === 1 ? "" : "s"}${failed ? ` — ${failed} failed (see console)` : ""}`);
+});
+
+// ===================================================================
+// MAINTENANCE — Deduplicate no-shows
+// ===================================================================
+// Finds (brotherKey, meetingId) pairs with multiple no_show records,
+// keeps the earliest by timestamp, deletes the rest. Also waives any
+// extra fines created by the duplicates.
+// ===================================================================
+$("settings-dedupe-noshows").addEventListener("click", async () => {
+  if (!state.user || !state.user.isExec) {
+    return toast("Only exec can run cleanup", true);
+  }
+
+  // Group no-shows by (brotherKey, meetingId)
+  const groups = new Map();
+  for (const n of state.noShows) {
+    const key = `${n.brotherKey}|${n.meetingId}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(n);
+  }
+
+  // Find duplicate groups
+  const duplicates = [];
+  for (const [key, list] of groups) {
+    if (list.length > 1) {
+      // Sort by timestamp ascending — keep first, mark rest for deletion
+      list.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      duplicates.push({ keep: list[0], remove: list.slice(1) });
+    }
+  }
+
+  // Find duplicate fines (more than one for same brother/meeting)
+  const fineGroups = new Map();
+  for (const f of state.fines) {
+    const key = `${f.brotherKey}|${f.meetingId}`;
+    if (!fineGroups.has(key)) fineGroups.set(key, []);
+    fineGroups.get(key).push(f);
+  }
+  const dupeFines = [];
+  for (const [key, list] of fineGroups) {
+    if (list.length > 1) {
+      list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      dupeFines.push(...list.slice(1));
+    }
+  }
+
+  const totalNoShows = duplicates.reduce((s, d) => s + d.remove.length, 0);
+  const totalFines = dupeFines.length;
+  const total = totalNoShows + totalFines;
+
+  if (total === 0) {
+    $("settings-dedupe-status").textContent = "No duplicates found ✓";
+    toast("No duplicate no-shows or fines");
+    return;
+  }
+
+  const ok = confirm(
+    `Found duplicates:\n\n` +
+    `• ${totalNoShows} duplicate no-show record${totalNoShows === 1 ? "" : "s"} ` +
+    `(across ${duplicates.length} brother/meeting pair${duplicates.length === 1 ? "" : "s"})\n` +
+    `• ${totalFines} duplicate fine record${totalFines === 1 ? "" : "s"}\n\n` +
+    `Keep the earliest of each, delete the rest? Cannot be undone.`
+  );
+  if (!ok) return;
+
+  $("settings-dedupe-status").textContent = "Deduplicating...";
+
+  let deleted = 0;
+  let failed = 0;
+
+  for (const dup of duplicates) {
+    for (const ns of dup.remove) {
+      try { await noShows.remove(ns.id); deleted++; }
+      catch (e) { console.warn("noShow", ns.id, e); failed++; }
+    }
+  }
+  for (const f of dupeFines) {
+    try { await fines.remove(f.id); deleted++; }
+    catch (e) { console.warn("fine", f.id, e); failed++; }
+  }
+
+  $("settings-dedupe-status").textContent = `Removed ${deleted}${failed ? " (" + failed + " failed)" : ""} ✓`;
+  toast(`Removed ${deleted} duplicate record${deleted === 1 ? "" : "s"}${failed ? ` — ${failed} failed (see console)` : ""}`);
 });
 
 // ===================================================================
