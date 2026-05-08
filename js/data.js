@@ -298,6 +298,17 @@ export const noShows = {
     });
   },
 
+  // Direct Firestore query — bypasses subscription cache for strong idempotency.
+  // Returns true if a no_show already exists for (brotherKey, meetingId).
+  async exists(brotherKey, meetingId) {
+    const snap = await getDocs(query(
+      collection(fs, "no_shows"),
+      where("brotherKey", "==", brotherKey),
+      where("meetingId", "==", meetingId)
+    ));
+    return !snap.empty;
+  },
+
   async create(record) {
     return await addDoc(collection(fs, "no_shows"), {
       ...record,
@@ -343,6 +354,15 @@ export const fines = {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       callback(list);
     });
+  },
+
+  async exists(brotherKey, meetingId) {
+    const snap = await getDocs(query(
+      collection(fs, "fines"),
+      where("brotherKey", "==", brotherKey),
+      where("meetingId", "==", meetingId)
+    ));
+    return !snap.empty;
   },
 
   async create(fine) {
