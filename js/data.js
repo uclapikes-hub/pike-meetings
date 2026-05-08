@@ -420,3 +420,40 @@ export const checkins = {
     });
   },
 };
+
+// ===================================================================
+// NOTIFICATIONS  (Stage 5B — replaces EmailJS plan)
+// ===================================================================
+// In-app notifications shown as full-screen modals on sign-in.
+// Each notification is targeted at one recipient (by email) and must
+// be acknowledged. Creates an audit trail (who saw what, when).
+// ===================================================================
+
+export const notifications = {
+  subscribe(callback) {
+    const q = query(collection(fs, "notifications"), orderBy("createdAt", "desc"));
+    return onSnapshot(q, snap => {
+      callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  },
+
+  async create(notif) {
+    return await addDoc(collection(fs, "notifications"), {
+      ...notif,
+      createdAt: Date.now(),
+      acknowledgedAt: null,
+      acknowledgedBy: null,
+    });
+  },
+
+  async acknowledge(id) {
+    await updateDoc(doc(fs, "notifications", id), {
+      acknowledgedAt: Date.now(),
+      acknowledgedBy: currentUser?.email || null,
+    });
+  },
+
+  async remove(id) {
+    await deleteDoc(doc(fs, "notifications", id));
+  },
+};
