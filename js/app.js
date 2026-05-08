@@ -13,7 +13,7 @@
 
 import {
   authApi, roster, meetings, attendance, absenceRequests,
-  noShows, fines, settings, events, checkins,
+  noShows, fines, settings, events, checkins, notifications,
   EXEC_EMAILS, APPROVER_EMAILS, SGT_AT_ARMS_EMAIL, TREASURER_EMAIL, SECRETARY_EMAIL,
   PRESIDENT_EMAIL, IVP_EMAIL,
 } from "./data.js";
@@ -33,6 +33,7 @@ const state = {
   settings: {},
   events: [],     // Stage 5: from event tracker collection
   checkins: [],   // Stage 5: from event tracker collection
+  notifications: [],  // Stage 5B: in-app notifications
   selectedQuarter: currentQuarter(),
   showPastMeetings: false,
 };
@@ -208,6 +209,12 @@ events.subscribe(list => {
 });
 checkins.subscribe(list => {
   state.checkins = list;
+  renderAll();
+});
+notifications.subscribe(list => {
+  state.notifications = list;
+  showPendingNotifications();
+  updateFineAura();
   renderAll();
 });
 
@@ -672,9 +679,10 @@ async function processClosedMeetings() {
       const newCount = priorCount + 1;
 
       try {
-        await noShows.create({
+        const fullName = `${brother.firstName} ${brother.lastName}`;
+        const noShowDocRef = await noShows.create({
           brotherKey: brother.key,
-          brotherName: `${brother.firstName} ${brother.lastName}`,
+          brotherName: fullName,
           email: brother.email,
           meetingId,
           meetingTitle: meeting.title,
@@ -686,26 +694,42 @@ async function processClosedMeetings() {
         console.log(`No-show recorded: ${brother.firstName} (count: ${newCount})`);
 
         // 2nd no-show triggers a $25 fine
+        let fineAmount = Number(state.settings.fineAmount) || FINE_AMOUNT_DEFAULT;
         if (newCount === 2) {
-          // Idempotency: only create if no existing pending fine for this meeting
           const existingFine = state.fines.find(f =>
             f.brotherKey === brother.key && f.meetingId === meetingId
           );
           if (!existingFine) {
-            const amount = Number(state.settings.fineAmount) || FINE_AMOUNT_DEFAULT;
             await fines.create({
               brotherKey: brother.key,
-              brotherName: `${brother.firstName} ${brother.lastName}`,
+              brotherName: fullName,
               email: brother.email,
-              amount,
+              amount: fineAmount,
               reason: "2nd no-show",
               meetingId,
               meetingTitle: meeting.title,
               meetingDate: meeting.date,
               quarter: meetingQuarter,
             });
-            console.log(`Fine created: $${amount} for ${brother.firstName}`);
+            console.log(`Fine created: $${fineAmount} for ${brother.firstName}`);
           }
+        }
+
+        // Notify the affected brother
+        const notifData = buildNoShowNotification(fullName, meeting, newCount, fineAmount);
+        await notify(brother.email, "no_show", notifData.title, notifData.message, notifData.severity, noShowDocRef.id);
+
+        // Notify Sgt-at-Arms on 3rd+ no-show
+        if (newCount >= 3) {
+          const sgtEmail = state.settings.sgtAtArmsEmail || SGT_AT_ARMS_EMAIL;
+          await notify(
+            sgtEmail,
+            "sgt_alert",
+            `Judicial review flagged: ${fullName}`,
+            `${fullName} has reached ${newCount} no-shows this quarter (last: ${meeting.title} on ${fmtDate(meeting.date)}). Per Article VI bylaws, judicial review may be appropriate. The brother has also been notified.`,
+            "judicial",
+            noShowDocRef.id
+          );
         }
       } catch (e) {
         console.warn(`No-show creation failed for ${brother.firstName}:`, e);
@@ -733,6 +757,122 @@ async function manualProcessMeeting(meetingId) {
 
 let currentAppealNoShowId = null;
 
+// ===================================================================
+// STAGE 5B — IN-APP NOTIFICATIONS
+// ===================================================================
+// Notification generation, sign-in modal display, fine aura.
+// ===================================================================
+
+// Recipient notification creator. `relatedId` lets us avoid duplicates.
+async function notify(recipientEmail, type, title, message, severity, relatedId) {
+  if (!recipientEmail) return;
+  // Idempotency: don't create duplicate notifications for the same source event
+  if (relatedId) {
+    const existing = state.notifications.find(n =>
+      n.recipientEmail === recipientEmail &&
+      n.type === type &&
+      n.relatedId === relatedId
+    );
+    if (existing) return;
+  }
+  try {
+    await notifications.create({
+      recipientEmail: recipientEmail.toLowerCase(),
+      type,
+      title,
+      message,
+      severity, // "info" | "warning" | "danger" | "judicial"
+      relatedId: relatedId || null,
+    });
+  } catch (e) {
+    console.warn("Failed to create notification:", e);
+  }
+}
+
+// Notification type → message templates
+function buildNoShowNotification(brotherName, meeting, count, fineAmount) {
+  if (count === 1) {
+    return {
+      title: "1st No-Show — Warning",
+      message: `Hey ${brotherName.split(" ")[0]}, you missed ${meeting.title} on ${fmtDate(meeting.date)}. This is your first no-show this quarter — heads up that the 2nd one is a $${fineAmount} fine. If you had an excuse you didn't submit, you can appeal from your dashboard.`,
+      severity: "warning",
+    };
+  }
+  if (count === 2) {
+    return {
+      title: `2nd No-Show — $${fineAmount} Fine`,
+      message: `${brotherName.split(" ")[0]}, your 2nd no-show this quarter triggered a $${fineAmount} fine. Pay the treasurer before quarter end. If you had legitimate grounds, file an appeal from your dashboard within a reasonable window.`,
+      severity: "danger",
+    };
+  }
+  return {
+    title: "3rd No-Show — Judicial Review",
+    message: `${brotherName.split(" ")[0]}, this is your 3rd no-show this quarter. Per chapter bylaws (Article VI), the Sgt-at-Arms will be notified and may bring this to the judicial board. Reach out to him directly if you want to discuss.`,
+    severity: "judicial",
+  };
+}
+
+// Whether a notification is pending acknowledgment for current user
+function pendingNotificationsFor(email) {
+  if (!email) return [];
+  return state.notifications
+    .filter(n => n.recipientEmail === email.toLowerCase() && !n.acknowledgedAt)
+    .sort((a, b) => {
+      // High severity first, then oldest first
+      const severityOrder = { judicial: 0, danger: 1, warning: 2, info: 3 };
+      const sa = severityOrder[a.severity] ?? 4;
+      const sb = severityOrder[b.severity] ?? 4;
+      if (sa !== sb) return sa - sb;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+}
+
+// Show pending notifications as full-screen stacked modals
+let _displayingNotification = false;
+async function showPendingNotifications() {
+  if (_displayingNotification) return;
+  if (!state.user || !state.user.email) return;
+
+  const pending = pendingNotificationsFor(state.user.email);
+  if (pending.length === 0) {
+    $("notif-modal").classList.remove("visible");
+    return;
+  }
+
+  _displayingNotification = true;
+  const n = pending[0];
+  const remaining = pending.length - 1;
+
+  $("notif-modal").className = `modal visible notif-${n.severity || "info"}`;
+  $("notif-title").textContent = n.title || "Notification";
+  $("notif-message").textContent = n.message || "";
+  $("notif-meta").textContent = n.createdAt
+    ? `${relativeTime(n.createdAt)}${remaining > 0 ? ` • ${remaining} more after this` : ""}`
+    : (remaining > 0 ? `${remaining} more after this` : "");
+
+  // Severity-aware acknowledgment label
+  const ackLabel = n.severity === "judicial" ? "I Understand"
+                 : n.severity === "danger"   ? "I Acknowledge"
+                 : "Got It";
+  $("notif-ack").textContent = ackLabel;
+  $("notif-ack").dataset.id = n.id;
+
+  _displayingNotification = false;
+}
+
+// Update fine aura — body class toggle that activates the multi-color glow
+function updateFineAura() {
+  if (!state.user || !state.user.rosterEntry) {
+    document.body.classList.remove("has-active-fine");
+    return;
+  }
+  const target = state.user.rosterEntry;
+  const hasActiveFine = state.fines.some(f =>
+    f.brotherKey === target.key && f.status === "pending"
+  );
+  document.body.classList.toggle("has-active-fine", hasActiveFine);
+}
+
 function openAppealModal(noShowId) {
   const ns = state.noShows.find(n => n.id === noShowId);
   if (!ns) return;
@@ -751,10 +891,25 @@ async function submitAppeal() {
     return toast("Be specific in your appeal (20+ characters)", true);
   }
   if (!currentAppealNoShowId) return;
+  const ns = state.noShows.find(n => n.id === currentAppealNoShowId);
   try {
     await noShows.appeal(currentAppealNoShowId, reason);
     $("appeal-modal").classList.remove("visible");
     toast("Appeal submitted — Sgt-at-Arms will review");
+
+    // Notify Sgt-at-Arms
+    if (ns) {
+      const sgtEmail = state.settings.sgtAtArmsEmail || SGT_AT_ARMS_EMAIL;
+      await notify(
+        sgtEmail,
+        "appeal_submitted",
+        `Appeal submitted: ${ns.brotherName}`,
+        `${ns.brotherName} appealed their no-show for ${ns.meetingTitle || "a meeting"} on ${fmtDate(ns.meetingDate || "")}. Reason given: "${reason}". Review in the Absence Requests tab.`,
+        "warning",
+        currentAppealNoShowId
+      );
+    }
+
     currentAppealNoShowId = null;
   } catch (e) {
     console.error(e);
@@ -982,7 +1137,7 @@ async function handleCreateMeeting() {
   }
 
   try {
-    await meetings.create({
+    const meetingRef = await meetings.create({
       title, date, startTime, endTime, location,
       mandatory, qrWindowMinutes: qrWin,
     });
@@ -990,6 +1145,33 @@ async function handleCreateMeeting() {
     $("mtg-location").value = "";
     $("mtg-mandatory").checked = false;
     toast("Meeting created");
+
+    // If mandatory, notify the entire chapter (all eligible brothers)
+    if (mandatory) {
+      const eligible = state.roster.filter(brotherIsEligible);
+      const meetingId = meetingRef; // meetings.create returns the ID directly
+      const startTimeFmt = fmtTime(startTime);
+      let notifSent = 0;
+      for (const b of eligible) {
+        if (!b.email) continue;
+        try {
+          await notify(
+            b.email,
+            "mandatory_meeting",
+            `⚑ Mandatory Meeting: ${title}`,
+            `Per Article VI §12, a MANDATORY meeting has been scheduled: ${title} on ${fmtDateLong(date)} at ${startTimeFmt}${location ? ` (${location})` : ""}. Attendance is required. If you can't attend, submit an absence request immediately — but exec verbal approval is required for mandatory meetings.`,
+            "warning",
+            typeof meetingId === "string" ? meetingId : null
+          );
+          notifSent++;
+        } catch (e) {
+          console.warn("Mandatory notif failed for", b.email, e);
+        }
+      }
+      if (notifSent > 0) {
+        toast(`Meeting created • ${notifSent} brothers notified`);
+      }
+    }
   } catch (e) {
     console.error(e);
     toast("Permission denied — exec sign-in required", true);
@@ -1155,6 +1337,21 @@ $("appeal-modal").addEventListener("click", e => {
   if (e.target === $("appeal-modal")) $("appeal-modal").classList.remove("visible");
 });
 $("appeal-submit").addEventListener("click", submitAppeal);
+
+// Notification modal handler (Stage 5B) — acknowledge and show next
+$("notif-ack").addEventListener("click", async () => {
+  const id = $("notif-ack").dataset.id;
+  if (!id) return;
+  try {
+    await notifications.acknowledge(id);
+    // Show next pending (if any) — the subscription will re-fire and re-trigger showPendingNotifications
+    // But we close the current modal optimistically:
+    $("notif-modal").classList.remove("visible");
+  } catch (e) {
+    console.error(e);
+    toast("Could not acknowledge", true);
+  }
+});
 
 // ===================================================================
 // URL HASH ROUTING (#meeting=ID auto-opens Roll Call after QR scan)
@@ -1672,11 +1869,22 @@ async function handleReviewDecision(id, decision) {
   if (!state.user || !state.user.isApprover) {
     return toast("Only approvers can decide", true);
   }
+  const req = state.absenceRequests.find(r => r.id === id);
   const noteInput = $(`abs-note-${id}`);
   const note = noteInput ? noteInput.value.trim() : "";
   try {
     await absenceRequests.review(id, decision, note);
     toast(`Request ${decision}`);
+
+    // Notify the brother of the decision
+    if (req && req.email) {
+      const decisionLabel = decision === "approved" ? "Absence Approved" : "Absence Denied";
+      const tone = decision === "approved" ? "info" : "warning";
+      const body = decision === "approved"
+        ? `Your absence request for ${req.meetingTitle || "the meeting"} on ${fmtDate(req.meetingDate || "")} has been approved.${note ? ` Note: "${note}"` : ""}`
+        : `Your absence request for ${req.meetingTitle || "the meeting"} on ${fmtDate(req.meetingDate || "")} has been denied.${note ? ` Reason: "${note}"` : ""} If you don't attend, you'll get a no-show.`;
+      await notify(req.email, "absence_decision", decisionLabel, body, tone, id);
+    }
   } catch (e) {
     console.error(e);
     toast("Review failed — try again", true);
@@ -1792,28 +2000,36 @@ async function handleAppealDecision(id, decision) {
   if (!state.user || (!state.user.isSgt && !state.user.isExec)) {
     return toast("Only Sgt-at-Arms can resolve appeals", true);
   }
+  const ns = state.noShows.find(n => n.id === id);
   const noteInput = $(`appeal-note-${id}`);
   const note = noteInput ? noteInput.value.trim() : "";
   try {
     await noShows.resolveAppeal(id, decision, note);
 
     // If overturned, remove any associated fine
-    if (decision === "overturned") {
-      const ns = state.noShows.find(n => n.id === id);
-      if (ns) {
-        const associatedFine = state.fines.find(f =>
-          f.brotherKey === ns.brotherKey &&
-          f.meetingId === ns.meetingId &&
-          f.status === "pending"
-        );
-        if (associatedFine) {
-          try {
-            await fines.waive(associatedFine.id, "Appeal overturned no-show");
-          } catch (e) { console.warn("Could not waive associated fine:", e); }
-        }
+    if (decision === "overturned" && ns) {
+      const associatedFine = state.fines.find(f =>
+        f.brotherKey === ns.brotherKey &&
+        f.meetingId === ns.meetingId &&
+        f.status === "pending"
+      );
+      if (associatedFine) {
+        try {
+          await fines.waive(associatedFine.id, "Appeal overturned no-show");
+        } catch (e) { console.warn("Could not waive associated fine:", e); }
       }
     }
     toast(`Appeal ${decision}`);
+
+    // Notify the brother of the appeal outcome
+    if (ns && ns.email) {
+      const decisionLabel = decision === "overturned" ? "Appeal Overturned ✓" : "Appeal Denied";
+      const body = decision === "overturned"
+        ? `Your appeal of the no-show for ${ns.meetingTitle || "the meeting"} has been overturned. Any associated fine has been waived.${note ? ` Sgt note: "${note}"` : ""}`
+        : `Your appeal of the no-show for ${ns.meetingTitle || "the meeting"} was denied. The no-show stands.${note ? ` Sgt note: "${note}"` : ""}`;
+      const tone = decision === "overturned" ? "info" : "warning";
+      await notify(ns.email, "appeal_resolved", decisionLabel, body, tone, id);
+    }
   } catch (e) {
     console.error(e);
     toast("Could not resolve appeal", true);
@@ -1911,6 +2127,14 @@ function renderReportsTab() {
       ${renderWatchlistSection()}
     </div>
 
+    ${(isExec || (state.user && state.user.isSgt)) ? `
+      <div class="card">
+        <div class="card-title">Pending Acknowledgments</div>
+        <div class="card-sub">Notifications brothers haven't seen yet &middot; Follow up if urgent</div>
+        ${renderPendingAcksSection()}
+      </div>
+    ` : ""}
+
     <div class="card">
       <div class="card-title">Excel Reports</div>
       <div class="card-sub">Download as .xlsx &middot; Filtered to ${formatQuarter(state.selectedQuarter)}</div>
@@ -1999,6 +2223,74 @@ function computeParticipation() {
       finesPaid:    myFines.filter(f => f.status === "paid").reduce((s, f) => s + Number(f.amount || 0), 0),
     };
   });
+}
+
+function renderPendingAcksSection() {
+  // Unacknowledged notifications, sorted by severity then age (oldest first)
+  const severityOrder = { judicial: 0, danger: 1, warning: 2, info: 3 };
+  const pending = state.notifications
+    .filter(n => !n.acknowledgedAt)
+    .sort((a, b) => {
+      const sa = severityOrder[a.severity] ?? 4;
+      const sb = severityOrder[b.severity] ?? 4;
+      if (sa !== sb) return sa - sb;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+
+  if (pending.length === 0) {
+    return `
+      <div style="margin-top: 14px; padding: 14px 18px; background: var(--light-gold); border-left: 3px solid var(--garnet);">
+        <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16px; font-weight: 600; color: var(--garnet);">
+          ✓ All notifications acknowledged
+        </div>
+        <div style="font-family: Georgia, serif; font-size: 12px; color: var(--slate); margin-top: 4px;">
+          Every brother has seen their notifications.
+        </div>
+      </div>`;
+  }
+
+  const grouped = { judicial: [], danger: [], warning: [], info: [] };
+  pending.forEach(n => {
+    const s = grouped[n.severity] ? n.severity : "info";
+    grouped[s].push(n);
+  });
+
+  const severityColors = {
+    judicial: "var(--dagger)",
+    danger:   "var(--memphis-brick)",
+    warning:  "var(--key-gold)",
+    info:     "var(--garnet)",
+  };
+
+  return `
+    <div style="margin-top: 14px;">
+      <div style="font-family: Georgia, serif; font-size: 13px; color: var(--slate); margin-bottom: 10px; line-height: 1.5;">
+        ${pending.length} notification${pending.length === 1 ? "" : "s"} unread. Brothers see these as full-screen modals on next sign-in.
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        ${pending.slice(0, 25).map(n => {
+          const ageHours = n.createdAt ? Math.floor((Date.now() - n.createdAt) / 3600000) : 0;
+          const ageLabel = ageHours < 1 ? "just now"
+                         : ageHours < 24 ? `${ageHours}h ago`
+                         : `${Math.floor(ageHours / 24)}d ago`;
+          const stale = ageHours >= 48;
+          const recipientShort = (n.recipientEmail || "").split("@")[0];
+          return `
+            <div style="padding: 10px 14px; background: white; border-left: 3px solid ${severityColors[n.severity] || "var(--garnet)"}; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <div style="flex: 1; min-width: 200px;">
+                <div style="font-family: Georgia, serif; font-size: 13px; line-height: 1.4;">
+                  <strong style="color: ${severityColors[n.severity] || "var(--garnet)"};">${escapeHtml(n.title || "Notification")}</strong>
+                  <span style="color: var(--knight-steel); font-size: 11px; margin-left: 6px;">→ ${escapeHtml(recipientShort)}</span>
+                </div>
+              </div>
+              <span style="font-family: Arial; font-size: 9px; letter-spacing: 1.5px; color: ${stale ? "var(--memphis-brick)" : "var(--knight-steel)"}; ${stale ? "font-weight: bold;" : ""} text-transform: uppercase;">
+                ${ageLabel}${stale ? " • stale" : ""}
+              </span>
+            </div>`;
+        }).join("")}
+        ${pending.length > 25 ? `<div style="font-family: Arial; font-size: 11px; color: var(--knight-steel); text-align: center; padding: 8px; letter-spacing: 1px;">+ ${pending.length - 25} more</div>` : ""}
+      </div>
+    </div>`;
 }
 
 function renderWatchlistSection() {
@@ -2234,9 +2526,22 @@ function renderFineRow(f, mode) {
 
 async function handleMarkFinePaid(id) {
   if (!confirm("Mark this fine as paid? This action is logged.")) return;
+  const fine = state.fines.find(f => f.id === id);
   try {
     await fines.markPaid(id);
     toast("Fine marked paid");
+
+    // Notify the brother — receipt-style
+    if (fine && fine.email) {
+      await notify(
+        fine.email,
+        "fine_paid",
+        "Fine Paid ✓",
+        `Your $${fine.amount} fine for ${fine.meetingTitle || "missing a meeting"} has been marked paid by the treasurer. Receipt logged on ${new Date().toLocaleDateString()}.`,
+        "info",
+        id
+      );
+    }
   } catch (e) {
     console.error(e);
     toast("Update failed — treasurer/exec only", true);
