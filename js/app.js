@@ -152,7 +152,7 @@ authApi.onChange(user => {
     if (!wasSignedIn && !_hasShownWelcomePulse) {
       _hasShownWelcomePulse = true;
       document.body.classList.add("welcome-pulsing");
-      setTimeout(() => document.body.classList.remove("welcome-pulsing"), 1300);
+      setTimeout(() => document.body.classList.remove("welcome-pulsing"), 1700);
     }
   } else {
     $("auth-status").innerHTML = "Not signed in";
@@ -208,6 +208,7 @@ noShows.subscribe(list => {
 });
 fines.subscribe(list => {
   state.fines = list;
+  updateFineAura(); // Aura must reflect fine state changes immediately
   renderAll();
 });
 settings.subscribe(s => {
@@ -767,14 +768,56 @@ async function processClosedMeetings() {
 // Manually triggerable from the Meetings tab (exec button on past meetings)
 async function manualProcessMeeting(meetingId) {
   const meeting = state.meetings.find(m => m.id === meetingId);
-  if (!meeting) return;
+  if (!meeting) return toast("Meeting not found — refresh", true);
   if (!qrWindow(meeting).isPast) {
     return toast("Meeting hasn't ended yet", true);
   }
+
+  // Snapshot before
+  const noShowsBefore = state.noShows.filter(n => n.meetingId === meetingId).length;
+  const eligible = state.roster.filter(brotherIsEligible);
+  const presentSet = new Set(state.attendance.filter(a => a.meetingId === meetingId).map(a => a.brotherKey));
+  const expectedNoShows = eligible.filter(b => !presentSet.has(b.key)).length;
+
+  console.log("[Process Meeting]", {
+    meetingId,
+    title: meeting.title,
+    quarter: meeting.quarter,
+    eligibleBrothers: eligible.length,
+    rosterTotal: state.roster.length,
+    presentForMeeting: presentSet.size,
+    existingNoShows: noShowsBefore,
+    expectedNewNoShows: expectedNoShows - noShowsBefore,
+  });
+
+  // Diagnose common failure modes upfront
+  if (eligible.length === 0) {
+    return toast("No eligible brothers in roster (need status 'Active' or 'New Member')", true);
+  }
+  if (!meeting.quarter) {
+    return toast("Meeting has no quarter set — re-create the meeting", true);
+  }
+
   toast("Processing no-shows...");
   await autoDenyPendingPastStart();
   await processClosedMeetings();
-  toast("No-shows processed");
+
+  // Brief delay to let Firestore subscription update, then report
+  setTimeout(() => {
+    const noShowsAfter = state.noShows.filter(n => n.meetingId === meetingId).length;
+    const created = noShowsAfter - noShowsBefore;
+    if (created === 0) {
+      if (expectedNoShows === 0) {
+        toast("All eligible brothers were marked present — no no-shows to create");
+      } else if (noShowsBefore === expectedNoShows) {
+        toast(`Already up to date — ${noShowsBefore} no-show${noShowsBefore === 1 ? "" : "s"} on record`);
+      } else {
+        toast("No new no-shows created — check console for diagnostics", true);
+      }
+    } else {
+      toast(`Created ${created} no-show${created === 1 ? "" : "s"}`);
+    }
+  }, 1500);
 }
 
 // ===================================================================
@@ -2771,6 +2814,65 @@ $("settings-dedupe-noshows").addEventListener("click", async () => {
 
   $("settings-dedupe-status").textContent = `Removed ${deleted}${failed ? " (" + failed + " failed)" : ""} ✓`;
   toast(`Removed ${deleted} duplicate record${deleted === 1 ? "" : "s"}${failed ? ` — ${failed} failed (see console)` : ""}`);
+});
+
+// ===================================================================
+// MAINTENANCE — Orphan notifications cleanup
+// ===================================================================
+// Notifications whose relatedId points to a record that no longer
+// exists. Common cause: meeting deleted before Stage 5C cascade fix.
+// ===================================================================
+$("settings-cleanup-notifs").addEventListener("click", async () => {
+  if (!state.user || !state.user.isExec) {
+    return toast("Only exec can run cleanup", true);
+  }
+
+  // Build set of all live IDs that notifications might reference
+  const liveIds = new Set();
+  state.meetings.forEach(m => liveIds.add(m.id));
+  state.noShows.forEach(n => liveIds.add(n.id));
+  state.fines.forEach(f => liveIds.add(f.id));
+  state.absenceRequests.forEach(r => liveIds.add(r.id));
+
+  // Orphan = has a relatedId that's not in any live collection.
+  // Notifications with no relatedId are kept (legacy/system messages).
+  const orphans = state.notifications.filter(n =>
+    n.relatedId && !liveIds.has(n.relatedId)
+  );
+
+  if (orphans.length === 0) {
+    $("settings-cleanup-notifs-status").textContent = "No orphans found ✓";
+    toast("No orphaned notifications");
+    return;
+  }
+
+  const ok = confirm(
+    `Found ${orphans.length} orphaned notification${orphans.length === 1 ? "" : "s"} ` +
+    `(notifications whose source record was deleted). Delete them all? Cannot be undone.`
+  );
+  if (!ok) return;
+
+  $("settings-cleanup-notifs-status").textContent = "Cleaning...";
+
+  let deleted = 0;
+  let failed = 0;
+
+  // Batch deletes for performance with 500+ records
+  for (let i = 0; i < orphans.length; i += 50) {
+    const batch = orphans.slice(i, i + 50);
+    await Promise.all(batch.map(n =>
+      notifications.remove(n.id)
+        .then(() => deleted++)
+        .catch(e => { console.warn("notif", n.id, e); failed++; })
+    ));
+    // Show progress for big batches
+    if (orphans.length > 100) {
+      $("settings-cleanup-notifs-status").textContent = `Cleaning... ${deleted}/${orphans.length}`;
+    }
+  }
+
+  $("settings-cleanup-notifs-status").textContent = `Cleaned ${deleted}${failed ? " (" + failed + " failed)" : ""} ✓`;
+  toast(`Cleaned up ${deleted} orphan notification${deleted === 1 ? "" : "s"}${failed ? ` — ${failed} failed (see console)` : ""}`);
 });
 
 // ===================================================================
