@@ -200,14 +200,28 @@ export const meetings = {
   async remove(id) {
     // Cascade: delete all data tied to this meeting
     const tasks = [];
+    const relatedIds = new Set([id]); // Track all doc IDs being deleted
+
     const att = await getDocs(query(collection(fs, "meeting_attendance"), where("meetingId", "==", id)));
-    att.forEach(d => tasks.push({ ref: d.ref }));
+    att.forEach(d => { tasks.push({ ref: d.ref }); relatedIds.add(d.id); });
     const reqs = await getDocs(query(collection(fs, "absence_requests"), where("meetingId", "==", id)));
-    reqs.forEach(d => tasks.push({ ref: d.ref }));
+    reqs.forEach(d => { tasks.push({ ref: d.ref }); relatedIds.add(d.id); });
     const ns = await getDocs(query(collection(fs, "no_shows"), where("meetingId", "==", id)));
-    ns.forEach(d => tasks.push({ ref: d.ref }));
+    ns.forEach(d => { tasks.push({ ref: d.ref }); relatedIds.add(d.id); });
     const fn = await getDocs(query(collection(fs, "fines"), where("meetingId", "==", id)));
-    fn.forEach(d => tasks.push({ ref: d.ref }));
+    fn.forEach(d => { tasks.push({ ref: d.ref }); relatedIds.add(d.id); });
+
+    // Also delete notifications tied to any of these (relatedId match).
+    // Notifications don't index meetingId directly — they reference the
+    // generating doc (no_show, fine, request) via relatedId. We fetch all
+    // and filter client-side since the collection is small.
+    const allNotifs = await getDocs(collection(fs, "notifications"));
+    allNotifs.forEach(d => {
+      const data = d.data();
+      if (data.relatedId && relatedIds.has(data.relatedId)) {
+        tasks.push({ ref: d.ref });
+      }
+    });
 
     for (let i = 0; i < tasks.length; i += 400) {
       const batch = writeBatch(fs);
