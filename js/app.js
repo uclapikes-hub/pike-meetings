@@ -1014,7 +1014,12 @@ function renderMeetingsTab() {
     if (isExec) {
       formContainer.innerHTML = renderCreateMeetingFormShell();
       $("mtg-create")?.addEventListener("click", handleCreateMeeting);
+      ["mtg-date", "mtg-start", "mtg-mandatory"].forEach(id => {
+        $(id)?.addEventListener("input", updateLeadTimeHint);
+        $(id)?.addEventListener("change", updateLeadTimeHint);
+      });
       defaultMeetingDate();
+      updateLeadTimeHint();
     } else {
       formContainer.innerHTML = "";
     }
@@ -1082,6 +1087,15 @@ function renderCreateMeetingFormShell() {
       <div class="card-title">Create Meeting</div>
       <div class="card-sub">Secretary: schedule a chapter meeting</div>
 
+      <div class="mtg-tip">
+        <div class="mtg-tip-label">Scheduling Tip</div>
+        <div class="mtg-tip-body">
+          Create chapter meetings <strong>more than 48 hours in advance</strong>, and ideally <strong>2 weeks ahead</strong>.
+          Brothers can only submit absence requests through the app up to 48 hours before a meeting, so scheduling
+          early gives them time to plan and request an excuse. Mandatory meetings require 14 days' notice (Article VI §12).
+        </div>
+      </div>
+
       <div class="row-2">
         <div>
           <label for="mtg-title">Meeting Title</label>
@@ -1107,6 +1121,8 @@ function renderCreateMeetingFormShell() {
           <input type="number" id="mtg-window" value="5" min="1" max="60">
         </div>
       </div>
+
+      <div id="mtg-leadtime" class="mtg-leadtime" aria-live="polite"></div>
 
       <label for="mtg-location">Location</label>
       <input type="text" id="mtg-location" placeholder="Chapter house living room" autocomplete="off">
@@ -1186,6 +1202,18 @@ async function handleCreateMeeting() {
     return `${yr}-fall`;
   })();
 
+  // Short-notice check: under 48 hours means brothers can't use the app to
+  // request an absence. (Mandatory meetings get the stricter 14-day check below.)
+  const hoursOut = (startDt.getTime() - Date.now()) / 3600000;
+  if (!mandatory && hoursOut < 48) {
+    const ok = confirm(
+      `This meeting is less than 48 hours away, so brothers won't be able to submit ` +
+      `absence requests through the app. They'll need to contact the secretary directly. ` +
+      `Create anyway?`
+    );
+    if (!ok) return;
+  }
+
   // Bylaw cap re-check for the quarter the meeting falls in (not just current)
   if (mandatory) {
     const inQuarterMandCount = state.meetings.filter(m => m.mandatory && m.quarter === meetingQuarter).length;
@@ -1213,6 +1241,7 @@ async function handleCreateMeeting() {
     $("mtg-title").value = "";
     $("mtg-location").value = "";
     $("mtg-mandatory").checked = false;
+    updateLeadTimeHint();
     toast("Meeting created");
 
     // If mandatory, notify the entire chapter (all eligible brothers)
@@ -2885,8 +2914,46 @@ renderQuarterSelectors();
 renderAll();
 startRollCallTimer();
 
-// Default the date input on the create form to today (called when the form is built).
-function defaultMeetingDate() {
+// Default the date input on the create form to 2 weeks from today — the
+// recommended lead time, so brothers have room to submit absence requests
+// and mandatory meetings clear the 14-day notice rule.
+function defaultMeetingDate(force) {
   const dateInput = $("mtg-date");
-  if (dateInput && !dateInput.value) dateInput.valueAsDate = new Date();
+  if (!dateInput || (dateInput.value && !force)) return;
+  const d = new Date();
+  d.setDate(d.getDate() + 14);
+  const pad = n => String(n).padStart(2, "0");
+  dateInput.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Live readout under the date/time row: how far out the meeting is and
+// what that means for absence requests.
+function updateLeadTimeHint() {
+  const el = $("mtg-leadtime");
+  if (!el) return;
+  const date  = $("mtg-date")?.value;
+  const start = $("mtg-start")?.value;
+  const mand  = $("mtg-mandatory")?.checked;
+  if (!date || !start) { el.className = "mtg-leadtime"; el.textContent = ""; return; }
+
+  const hours = (combineLocalDateTime(date, start).getTime() - Date.now()) / 3600000;
+  const days  = hours / 24;
+  const when  = hours < 48
+    ? `${Math.max(0, Math.round(hours))} hour${Math.round(hours) === 1 ? "" : "s"} away`
+    : `${Math.floor(days)} day${Math.floor(days) === 1 ? "" : "s"} away`;
+
+  let level, msg;
+  if (hours <= 0) {
+    level = "bad";  msg = "This time has already passed.";
+  } else if (hours < 48) {
+    level = "bad";  msg = `${when}. Absence requests will be closed for this meeting, so brothers will have to contact the secretary directly.`;
+  } else if (mand && days < 14) {
+    level = "warn"; msg = `${when}. Mandatory meetings need 14 days' notice (Article VI §12).`;
+  } else if (days < 14) {
+    level = "warn"; msg = `${when}. Brothers have until 48 hours before to request an absence. Two weeks out is recommended.`;
+  } else {
+    level = "good"; msg = `${when}. Plenty of time for brothers to plan and submit absence requests.`;
+  }
+  el.className = "mtg-leadtime is-" + level;
+  el.textContent = msg;
 }

@@ -1079,3 +1079,49 @@ body.welcome-pulsing::after {
     display: none;
   }
 }
+
+/* =================== CREATE MEETING — scheduling tip + lead time =================== */
+.mtg-tip {
+  margin: -4px 0 22px;
+  padding: 14px 18px;
+  background: rgba(170,151,103,0.10);
+  border-left: 3px solid var(--true-gold);
+}
+.mtg-tip-label {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--garnet);
+  margin-bottom: 6px;
+}
+.mtg-tip-body {
+  font-family: Georgia, serif;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--slate);
+}
+.mtg-tip-body strong { color: var(--burgundy); }
+
+.mtg-leadtime {
+  font-family: Georgia, serif;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.5;
+  margin: 12px 0 18px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  padding-left: 12px;
+  border-left: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.mtg-leadtime:empty { display: none; }
+.mtg-leadtime.is-good { color: var(--old-gold);   border-left-color: var(--true-gold); }
+.mtg-leadtime.is-warn { color: var(--crimson);    border-left-color: var(--memphis-brick); }
+.mtg-leadtime.is-bad  { color: var(--garnet);     border-left-color: var(--garnet); font-style: normal; font-weight: bold; }
+
+@media (max-width: 600px) {
+  .mtg-tip { padding: 12px 14px; }
+  .mtg-tip-body { font-size: 13px; }
+}
