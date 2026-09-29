@@ -18,7 +18,7 @@ import {
   PRESIDENT_EMAIL, IVP_EMAIL,
 } from "./data.js";
 import {
-  currentQuarter, formatQuarter, quartersFromRecords,
+  currentQuarter, formatQuarter, quartersFromRecords, getQuarterForDate,
 } from "./quarters.js";
 
 // ---------------- App state ----------------
@@ -216,6 +216,11 @@ function renderWelcomeBack() {
     if (unpaid) add(unpaid, "Unpaid fines", "Chapter-wide ledger", false);
   }
 
+  // New Dispatch issue
+  const newIssues = ((state.settings && state.settings.dispatch) ? Object.values(state.settings.dispatch) : [])
+    .filter(i => i && i.status === "published" && since != null && (i.publishedAt || 0) > since);
+  if (newIssues.length) add("New", "Dispatch issue" + (newIssues.length === 1 ? "" : "s"), newIssues.map(i => i.headline).slice(0, 1).join(""), false);
+
   // Next meeting, always useful
   const next = state.meetings
     .map(m => ({ m, t: combineLocalDateTime(m.date, m.startTime).getTime() }))
@@ -336,6 +341,8 @@ fines.subscribe(list => {
 settings.subscribe(s => {
   state.settings = s;
   renderSettings();
+  renderDispatchSafe();
+  try { renderWelcomeBack(); } catch (e) {}
 });
 events.subscribe(list => {
   state.events = list;
@@ -403,6 +410,7 @@ function renderAll() {
   renderMeetingsTab();
   renderAbsenceTab();
   renderReportsTab();
+  renderDispatchSafe();
 }
 
 // ===================================================================
@@ -3508,6 +3516,7 @@ const DOCK_ICONS = {
   reports:    '<path d="M3 3v18h18"/><path d="M7 16v-4M12 16V8M17 16v-7"/>',
   attendance: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   roster:     '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  dispatch:   '<path d="M4 4h13a1 1 0 0 1 1 1v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2"/><path d="M8 8h6M8 12h6M8 16h4"/>',
   settings:   '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
 };
 const DOCK_SHORT = { absence: "Absences", rollcall: "Roll Call", checkin: "Check In" };
@@ -3622,6 +3631,296 @@ async function createMeetingSeries({ title, startTime, endTime, location, qrWin,
   }
 }
 
+
+// ===================================================================
+// THE DISPATCH: the chapter's weekly newsletter
+// Exec writes an issue after chapter (recap, decisions, announcements,
+// shoutouts). Brothers read the latest issue and browse the archive.
+// Attendance numbers and "coming up" are filled in automatically.
+// ===================================================================
+let _dispatchEditorFor = null;   // which issue the editor was built for ("new" | id | null)
+let _dispatchPaperHtml = "";
+
+function dispatchIssues() {
+  const map = (state.settings && state.settings.dispatch) || {};
+  return Object.values(map).filter(i => i && i.id)
+    .sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.publishedAt || b.updatedAt || 0) - (a.publishedAt || a.updatedAt || 0));
+}
+function dispatchPublished() { return dispatchIssues().filter(i => i.status === "published"); }
+
+// Safe, tiny formatter: blank line = new paragraph, "- " lines = bullets, **bold**, *italic*
+function dispatchInline(t) {
+  return escapeHtml(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g, "$1<em>$2</em>");
+}
+function dispatchFormat(text) {
+  return String(text || "").trim().split(/\n\s*\n/).map(block => {
+    const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return "";
+    if (lines.every(l => /^[-•*]\s+/.test(l)))
+      return `<ul>${lines.map(l => `<li>${dispatchInline(l.replace(/^[-•*]\s+/, ""))}</li>`).join("")}</ul>`;
+    return `<p>${lines.map(dispatchInline).join("<br>")}</p>`;
+  }).join("");
+}
+function dispatchList(text) {
+  const items = String(text || "").split("\n").map(l => l.trim().replace(/^[-•*]\s+/, "")).filter(Boolean);
+  return items.length ? `<ul>${items.map(i => `<li>${dispatchInline(i)}</li>`).join("")}</ul>` : "";
+}
+
+function dispatchIssueNumber(issue) {
+  const q = getQuarterForDate(issue.date);
+  const same = dispatchPublished().filter(i => getQuarterForDate(i.date) === q)
+    .sort((a, b) => a.date.localeCompare(b.date) || (a.publishedAt || 0) - (b.publishedAt || 0));
+  const n = same.findIndex(i => i.id === issue.id);
+  return { vol: formatQuarter(q), no: n >= 0 ? n + 1 : same.length + 1 };
+}
+
+function dispatchNumbers(issue) {
+  const m = issue.meetingId ? state.meetings.find(x => x.id === issue.meetingId) : null;
+  const cells = [];
+  if (m) {
+    const present = new Set(state.attendance.filter(a => a.meetingId === m.id).map(a => a.brotherKey)).size;
+    const eligible = state.roster.filter(brotherIsEligible).length;
+    const excused = state.absenceRequests.filter(r => r.meetingId === m.id && r.status === "approved").length;
+    if (present || combineLocalDateTime(m.date, m.startTime).getTime() < Date.now()) {
+      cells.push({ big: String(present), small: `of ${eligible} brothers present` });
+      if (eligible) cells.push({ big: Math.round(present / eligible * 100) + "%", small: "attendance" });
+      cells.push({ big: String(excused), small: `excused absence${excused === 1 ? "" : "s"}` });
+    }
+  }
+  const after = issue.date || new Date().toISOString().slice(0, 10);
+  const nextMtgs = state.meetings.filter(x => x.date > after).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3)
+    .map(x => ({ key: x.date + " " + (x.startTime || ""), when: fmtDateShort(x.date) + ", " + fmtTime(x.startTime), what: x.title + (x.mandatory ? " · mandatory" : "") }));
+  const nextEvents = (state.events || []).filter(e => e.date && e.date > after).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3)
+    .map(e => ({ key: e.date + " 99", when: fmtDateShort(e.date), what: e.name + (e.type ? " · " + e.type : "") }));
+  return { meeting: m, cells, upcoming: [...nextMtgs, ...nextEvents].sort((a, b) => a.key.localeCompare(b.key)).slice(0, 5) };
+}
+
+function renderDispatchPaper(issue) {
+  const { vol, no } = dispatchIssueNumber(issue);
+  const { meeting, cells, upcoming } = dispatchNumbers(issue);
+  const dateLong = issue.date ? fmtDateLong(issue.date) : "";
+  const sec = (title, body) => body ? `<section class="dp-section"><h3 class="dp-kicker">${title}</h3>${body}</section>` : "";
+  return `
+  <article class="dispatch-paper${issue.status !== "published" ? " is-draft" : ""}" aria-label="The Iota Pi Dispatch">
+    ${issue.status !== "published" ? `<div class="dp-draft-flag">Draft · only exec can see this</div>` : ""}
+    <div class="dp-masthead">
+      <div class="dp-topline"><span>UCLA · Iota Pi Chapter</span><span>Pi Kappa Alpha</span></div>
+      <h2 class="dp-name">The Iota Pi Dispatch</h2>
+      <div class="dp-rule"></div>
+      <div class="dp-issueline"><span>${escapeHtml(vol)} · No. ${no}</span><span>${escapeHtml(dateLong)}</span><span>${meeting ? escapeHtml(meeting.title) : "Chapter Edition"}</span></div>
+    </div>
+    <h1 class="dp-headline">${escapeHtml(issue.headline || "Untitled issue")}</h1>
+    ${issue.dek ? `<p class="dp-dek">${escapeHtml(issue.dek)}</p>` : ""}
+    <div class="dp-byline">By ${escapeHtml(issue.author || "the Secretary")}</div>
+    <div class="dp-body">
+      <div class="dp-main">
+        ${issue.recap ? `<section class="dp-section dp-recap"><h3 class="dp-kicker">The Recap</h3>${dispatchFormat(issue.recap)}</section>` : ""}
+        ${sec("Motions &amp; Decisions", dispatchList(issue.decisions))}
+        ${sec("Announcements", dispatchList(issue.announcements))}
+        ${sec("Shoutouts", dispatchList(issue.shoutouts))}
+      </div>
+      <aside class="dp-side">
+        ${cells.length ? `<section class="dp-box"><h3 class="dp-kicker">By the Numbers</h3>${cells.map(c => `<div class="dp-stat"><span class="dp-stat-big">${escapeHtml(c.big)}</span><span class="dp-stat-small">${escapeHtml(c.small)}</span></div>`).join("")}</section>` : ""}
+        ${upcoming.length ? `<section class="dp-box"><h3 class="dp-kicker">Coming Up</h3><ul class="dp-upcoming">${upcoming.map(u => `<li><span class="dp-when">${escapeHtml(u.when)}</span>${escapeHtml(u.what)}</li>`).join("")}</ul></section>` : ""}
+      </aside>
+    </div>
+    <div class="dp-foot"><img src="assets/brand/symbol-gold.png" alt="" class="dp-mark"><span>Courage to be More</span></div>
+  </article>`;
+}
+
+function renderDispatchTab() {
+  const toolbar = $("dispatch-toolbar"), paperWrap = $("dispatch-paper-wrap"), archive = $("dispatch-archive"), editor = $("dispatch-editor");
+  if (!toolbar || !paperWrap) return;
+  const isExec = !!(state.user && state.user.isExec);
+
+  if (!state.user) {
+    toolbar.innerHTML = ""; editor.innerHTML = ""; _dispatchEditorFor = null; archive.innerHTML = "";
+    const html = `<div class="card dp-empty"><div class="card-title">The Iota Pi Dispatch</div><div class="card-sub">The chapter's weekly recap</div><p>Sign in to read the latest issue.</p></div>`;
+    if (_dispatchPaperHtml !== html) { paperWrap.innerHTML = html; _dispatchPaperHtml = html; }
+    return;
+  }
+
+  const all = isExec ? dispatchIssues() : dispatchPublished();
+  const published = dispatchPublished();
+  const drafts = isExec ? all.filter(i => i.status !== "published") : [];
+  let current = all.find(i => i.id === state.dispatchView) || published[0] || null;
+
+  // Toolbar
+  const tb = `
+    <div class="dp-toolbar">
+      ${isExec ? `<button class="btn" type="button" id="dp-new">✎ Write an issue</button>` : ""}
+      ${current ? `<button class="btn btn-ghost" type="button" id="dp-print">Print / Save PDF</button>
+                   <button class="btn btn-ghost" type="button" id="dp-link">Copy link</button>` : ""}
+      ${isExec && current ? `<button class="btn btn-ghost" type="button" id="dp-edit">Edit this issue</button>` : ""}
+    </div>
+    ${drafts.length ? `<div class="dp-drafts"><span class="dp-drafts-label">Drafts</span>${drafts.map(d => `<button type="button" class="dp-chip${current && current.id === d.id ? " is-on" : ""}" data-dp-view="${d.id}">${escapeHtml(d.headline || "Untitled")} · ${fmtDateShort(d.date)}</button>`).join("")}</div>` : ""}`;
+  if (toolbar.dataset.html !== tb) {
+    toolbar.dataset.html = tb; toolbar.innerHTML = tb;
+    $("dp-new")?.addEventListener("click", () => openDispatchEditor("new"));
+    $("dp-edit")?.addEventListener("click", () => openDispatchEditor(current.id));
+    $("dp-print")?.addEventListener("click", () => { document.body.classList.add("printing-dispatch"); setTimeout(() => { window.print(); document.body.classList.remove("printing-dispatch"); }, 50); });
+    $("dp-link")?.addEventListener("click", async () => {
+      const url = location.origin + location.pathname + "#dispatch=" + current.id;
+      try { await navigator.clipboard.writeText(url); toast("Link copied"); } catch (e) { prompt("Copy this link:", url); }
+    });
+    toolbar.querySelectorAll("[data-dp-view]").forEach(b => b.addEventListener("click", () => { state.dispatchView = b.dataset.dpView; renderDispatchTab(); }));
+  }
+
+  // Paper
+  const paper = current ? renderDispatchPaper(current)
+    : `<div class="card dp-empty"><div class="card-title">The Iota Pi Dispatch</div><div class="card-sub">The chapter's weekly recap</div>
+       <p>${isExec ? "No issues yet. Write the first one after your next chapter meeting: a short recap, what was decided, announcements and shoutouts. Attendance numbers and upcoming meetings fill in on their own." : "No issues yet. The Secretary will post a recap after chapter."}</p></div>`;
+  if (_dispatchPaperHtml !== paper) { paperWrap.innerHTML = paper; _dispatchPaperHtml = paper; }
+
+  // Archive
+  const arch = published.length > 1 || (published.length && current && current.status !== "published")
+    ? `<div class="card dp-archive"><div class="card-title">Past Issues</div><div class="card-sub">${published.length} published</div>
+        <ul class="dp-archive-list">${published.map(i => {
+          const { vol, no } = dispatchIssueNumber(i);
+          return `<li><button type="button" class="dp-archive-item${current && current.id === i.id ? " is-on" : ""}" data-dp-view="${i.id}">
+            <span class="dp-archive-date">${fmtDateShort(i.date)}</span>
+            <span class="dp-archive-head">${escapeHtml(i.headline || "Untitled")}</span>
+            <span class="dp-archive-no">${escapeHtml(vol)} · No. ${no}</span></button></li>`; }).join("")}</ul></div>`
+    : "";
+  if (archive.dataset.html !== arch) {
+    archive.dataset.html = arch; archive.innerHTML = arch;
+    archive.querySelectorAll("[data-dp-view]").forEach(b => b.addEventListener("click", () => {
+      state.dispatchView = b.dataset.dpView; renderDispatchTab();
+      paperWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+    }));
+  }
+
+  if (!isExec && _dispatchEditorFor) { editor.innerHTML = ""; _dispatchEditorFor = null; }
+}
+
+function openDispatchEditor(which) {
+  const editor = $("dispatch-editor"); if (!editor) return;
+  const existing = which !== "new" ? dispatchIssues().find(i => i.id === which) : null;
+  const today = new Date().toISOString().slice(0, 10);
+  const covered = new Set(dispatchIssues().map(i => i.meetingId).filter(Boolean));
+  const recent = state.meetings.filter(m => m.date <= today).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
+  const defMeeting = existing ? existing.meetingId : (recent.find(m => !covered.has(m.id)) || recent[0] || {}).id || "";
+  const me = state.user.rosterEntry;
+  const v = existing || {};
+  _dispatchEditorFor = which;
+  editor.innerHTML = `
+    <div class="card dp-editor">
+      <div class="card-title">${existing ? "Edit issue" : "Write an issue"}</div>
+      <div class="card-sub">Keep it short. Brothers read this on their phones.</div>
+      <div class="row-2">
+        <div>
+          <label for="dp-meeting">Chapter meeting it covers</label>
+          <select id="dp-meeting">
+            <option value="">None (special edition)</option>
+            ${recent.map(m => `<option value="${m.id}"${m.id === defMeeting ? " selected" : ""}>${escapeHtml(m.title)} · ${fmtDateShort(m.date)}</option>`).join("")}
+          </select>
+        </div>
+        <div>
+          <label for="dp-date">Issue date</label>
+          <input type="date" id="dp-date" value="${escapeHtml(v.date || (recent.find(m => m.id === defMeeting) || {}).date || today)}">
+        </div>
+      </div>
+      <label for="dp-headline">Headline</label>
+      <input type="text" id="dp-headline" maxlength="90" placeholder="Philanthropy week is here" value="${escapeHtml(v.headline || "")}">
+      <label for="dp-dek">Subheadline <span class="dp-opt">(optional)</span></label>
+      <input type="text" id="dp-dek" maxlength="160" placeholder="Plus: new member ed schedule and a formal date" value="${escapeHtml(v.dek || "")}">
+      <label for="dp-recap">The recap</label>
+      <textarea id="dp-recap" rows="6" placeholder="What happened at chapter. Leave a blank line between paragraphs. Use **bold** for emphasis.">${escapeHtml(v.recap || "")}</textarea>
+      <div class="row-2">
+        <div>
+          <label for="dp-decisions">Motions &amp; decisions <span class="dp-opt">(one per line)</span></label>
+          <textarea id="dp-decisions" rows="4" placeholder="Approved $300 for philanthropy supplies (18–4)">${escapeHtml(v.decisions || "")}</textarea>
+        </div>
+        <div>
+          <label for="dp-announcements">Announcements <span class="dp-opt">(one per line)</span></label>
+          <textarea id="dp-announcements" rows="4" placeholder="Dues are due Oct 15">${escapeHtml(v.announcements || "")}</textarea>
+        </div>
+      </div>
+      <label for="dp-shoutouts">Shoutouts <span class="dp-opt">(one per line)</span></label>
+      <textarea id="dp-shoutouts" rows="3" placeholder="Brother of the week: …">${escapeHtml(v.shoutouts || "")}</textarea>
+      <label class="dp-notify"><input type="checkbox" id="dp-notify" ${existing && existing.status === "published" ? "" : "checked"}> Let brothers know when it's published</label>
+      <div class="dp-editor-actions">
+        <button class="btn" type="button" id="dp-publish">${existing && existing.status === "published" ? "Update issue" : "Publish"}</button>
+        <button class="btn btn-ghost" type="button" id="dp-preview">Preview</button>
+        ${!existing || existing.status !== "published" ? `<button class="btn btn-ghost" type="button" id="dp-save-draft">Save draft</button>` : ""}
+        <button class="btn btn-ghost" type="button" id="dp-cancel">Close</button>
+        ${existing ? `<button class="btn btn-danger" type="button" id="dp-delete">Delete</button>` : ""}
+      </div>
+    </div>`;
+  $("dp-meeting").addEventListener("change", e => { const m = state.meetings.find(x => x.id === e.target.value); if (m) $("dp-date").value = m.date; });
+  $("dp-cancel").addEventListener("click", closeDispatchEditor);
+  $("dp-preview").addEventListener("click", () => {
+    const draft = { ...(existing || {}), ...readDispatchForm(existing), status: existing ? existing.status : "draft" };
+    $("dispatch-paper-wrap").innerHTML = renderDispatchPaper(draft); _dispatchPaperHtml = "";
+    $("dispatch-paper-wrap").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  $("dp-save-draft")?.addEventListener("click", () => saveDispatch(existing, "draft"));
+  $("dp-publish").addEventListener("click", () => saveDispatch(existing, "published"));
+  $("dp-delete")?.addEventListener("click", async () => {
+    if (!confirm(`Delete "${existing.headline || "this issue"}"? This can't be undone.`)) return;
+    try { await settings.deleteDispatch(existing.id); state.dispatchView = null; closeDispatchEditor(); toast("Issue deleted"); }
+    catch (e) { console.error(e); toast("Couldn't delete. Exec sign-in required.", true); }
+  });
+  editor.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("dp-headline").focus({ preventScroll: true });
+}
+function closeDispatchEditor() { const ed = $("dispatch-editor"); if (ed) ed.innerHTML = ""; _dispatchEditorFor = null; _dispatchPaperHtml = ""; renderDispatchTab(); }
+
+function readDispatchForm(existing) {
+  const me = state.user && state.user.rosterEntry;
+  return {
+    meetingId: $("dp-meeting").value || "",
+    date: $("dp-date").value || new Date().toISOString().slice(0, 10),
+    headline: $("dp-headline").value.trim(),
+    dek: $("dp-dek").value.trim(),
+    recap: $("dp-recap").value.trim(),
+    decisions: $("dp-decisions").value.trim(),
+    announcements: $("dp-announcements").value.trim(),
+    shoutouts: $("dp-shoutouts").value.trim(),
+    author: (existing && existing.author) || (me ? `${me.firstName} ${me.lastName}` : (state.user.email || "").split("@")[0]),
+    authorEmail: (existing && existing.authorEmail) || state.user.email || "",
+  };
+}
+
+async function saveDispatch(existing, status) {
+  if (!state.user || !state.user.isExec) return toast("Sign in as exec", true);
+  const f = readDispatchForm(existing);
+  if (!f.headline) return toast("Add a headline", true);
+  if (status === "published" && !f.recap && !f.decisions && !f.announcements && !f.shoutouts)
+    return toast("Write at least a recap or one announcement", true);
+  const now = Date.now();
+  const wasPublished = existing && existing.status === "published";
+  const issue = {
+    id: existing ? existing.id : "i" + now.toString(36),
+    ...f, status,
+    createdAt: existing ? existing.createdAt : now,
+    updatedAt: now,
+    publishedAt: status === "published" ? (existing && existing.publishedAt) || now : null,
+  };
+  const notifyAll = status === "published" && !wasPublished && $("dp-notify")?.checked;
+  const btns = [...document.querySelectorAll(".dp-editor-actions .btn")]; btns.forEach(b => b.disabled = true);
+  try {
+    await settings.saveDispatch(issue);
+    state.dispatchView = issue.id;
+    closeDispatchEditor();
+    toast(status === "published" ? (wasPublished ? "Issue updated" : "Published") : "Draft saved");
+    if (notifyAll) {
+      const mine = String(state.user.email || "").toLowerCase();
+      const list = state.roster.filter(brotherIsEligible).filter(b => b.email && String(b.email).toLowerCase() !== mine);
+      let sent = 0;
+      for (const b of list) {
+        try { await notify(b.email, "dispatch", `📰 New Dispatch: ${issue.headline}`, issue.dek || (issue.recap || "").replace(/\s+/g, " ").slice(0, 160) || "A new issue of the Iota Pi Dispatch is out.", "info", issue.id); sent++; }
+        catch (e) { console.warn("Dispatch notif failed for", b.email, e); }
+      }
+      if (sent) toast(`Published · ${sent} brother${sent === 1 ? "" : "s"} notified`);
+    }
+  } catch (e) {
+    console.error(e);
+    toast("Couldn't save. Exec sign-in required.", true);
+  } finally { btns.forEach(b => b.disabled = false); }
+}
+function renderDispatchSafe() { try { renderDispatchTab(); } catch (e) { console.warn("Dispatch skipped:", e); } }
+
 // ===================================================================
 // INIT
 // ===================================================================
@@ -3684,3 +3983,14 @@ try { initThemeSwitcher(); } catch (e) { console.warn("Theme switcher skipped:",
 
 // Mobile dock
 try { initDock(); } catch (e) { console.warn("Dock skipped:", e); }
+
+// Open a specific Dispatch issue from a shared link (#dispatch=ID)
+function openDispatchFromHash() {
+  const m = window.location.hash.match(/dispatch=([\w-]+)/);
+  if (!m) return;
+  activateTab("dispatch");
+  state.dispatchView = m[1];
+  renderDispatchSafe();
+}
+window.addEventListener("hashchange", openDispatchFromHash);
+try { openDispatchFromHash(); } catch (e) { console.warn("Dispatch link skipped:", e); }

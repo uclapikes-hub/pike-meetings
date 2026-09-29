@@ -25,7 +25,8 @@ import {
   orderBy,
   where,
   getDocs,
-  writeBatch
+  writeBatch,
+  deleteField
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 import { firebaseConfig } from "./firebase-config.js";
@@ -422,6 +423,16 @@ export const settings = {
 
   async save(data) {
     await setDoc(doc(fs, "settings", "main"), data, { merge: true });
+  },
+
+  // The Dispatch (chapter newsletter). Issues live in settings/main under
+  // "dispatch", keyed by issue id, so they need no new security rules:
+  // exec can already write settings and every signed-in brother can read them.
+  async saveDispatch(issue) {
+    await setDoc(doc(fs, "settings", "main"), { dispatch: { [issue.id]: issue } }, { merge: true });
+  },
+  async deleteDispatch(id) {
+    await setDoc(doc(fs, "settings", "main"), { dispatch: { [id]: deleteField() } }, { merge: true });
   },
 };
 
