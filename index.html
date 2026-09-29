@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PIKE Chapter Meetings — UCLA</title>
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500..700;1,500..700&family=Gantari:ital,wght@0,400..700;1,400..700&display=swap">
 <link rel="stylesheet" href="assets/styles.css">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -57,6 +60,9 @@
   <!-- ============== ROLL CALL PANEL ============== -->
   <div class="panel active" id="panel-rollcall">
 
+    <!-- Live clock + Westwood weather -->
+    <div id="now-widgets"></div>
+
     <!-- Brother dashboard (shown when signed in & in roster) -->
     <!-- Welcome Back card (shown once per sign-in) -->
     <div id="welcome-back"></div>
@@ -104,24 +110,24 @@
       <div class="card-title">Approver Officers</div>
       <div class="card-sub">Review absence requests &middot; Editable for term transitions</div>
 
-      <div style="margin-top: 8px; padding: 12px 14px; background: var(--khaki); background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px; font-family: Georgia, serif; font-size: 12px; line-height: 1.5; border-radius: 14px;">
+      <div style="margin-top: 8px; padding: 12px 14px; background: var(--khaki); background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px; font-family: var(--font-body); font-size: 12px; line-height: 1.5; border-radius: 14px;">
         <strong style="color: var(--burgundy);">⚠ Officer Transition Note:</strong> updating these emails changes the UI immediately, but Firestore security rules ALSO need to be updated when officers actually rotate, otherwise the new officers won't be able to approve. Ping the dev (or follow the rules-update walkthrough in the project docs) when officers change.
       </div>
 
       <div class="settings-row" style="margin-top: 14px;">
         <label for="setting-president-email">President</label>
         <input type="email" id="setting-president-email" placeholder="pthomsak@gmail.com">
-        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--gold-ink);">Approver</span>
+        <span style="font-family: var(--font-body); font-size: 11px; font-style: italic; color: var(--gold-ink);">Approver</span>
       </div>
       <div class="settings-row">
         <label for="setting-ivp-email">Internal VP</label>
         <input type="email" id="setting-ivp-email" placeholder="ryansalridge@gmail.com">
-        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--gold-ink);">Approver</span>
+        <span style="font-family: var(--font-body); font-size: 11px; font-style: italic; color: var(--gold-ink);">Approver</span>
       </div>
       <div class="settings-row">
         <label for="setting-secretary-email">Secretary</label>
         <input type="email" id="setting-secretary-email" placeholder="davidbnavarrojr@gmail.com">
-        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--gold-ink);">Approver &middot; Under-48hr contact</span>
+        <span style="font-family: var(--font-body); font-size: 11px; font-style: italic; color: var(--gold-ink);">Approver &middot; Under-48hr contact</span>
       </div>
     </div>
 
@@ -132,22 +138,22 @@
       <div class="settings-row">
         <label for="setting-sgt-email">Sergeant-at-Arms</label>
         <input type="email" id="setting-sgt-email" placeholder="nikkranjith21@gmail.com">
-        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--gold-ink);">2nd no-show + 3rd no-show</span>
+        <span style="font-family: var(--font-body); font-size: 11px; font-style: italic; color: var(--gold-ink);">2nd no-show + 3rd no-show</span>
       </div>
       <div class="settings-row">
         <label for="setting-vc-email">Judicial Vice Chair</label>
         <input type="email" id="setting-vc-email" placeholder="(set by Sgt-at-Arms after appointing j-board)">
-        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--gold-ink);">CC'd on 3rd no-show</span>
+        <span style="font-family: var(--font-body); font-size: 11px; font-style: italic; color: var(--gold-ink);">CC'd on 3rd no-show</span>
       </div>
       <div class="settings-row">
         <label for="setting-treasurer-email">Treasurer</label>
         <input type="email" id="setting-treasurer-email" placeholder="david.mescobedo20@gmail.com">
-        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--gold-ink);">All fine notices</span>
+        <span style="font-family: var(--font-body); font-size: 11px; font-style: italic; color: var(--gold-ink);">All fine notices</span>
       </div>
       <div class="settings-row">
         <label for="setting-fine-amount">Fine Amount ($)</label>
         <input type="number" id="setting-fine-amount" min="0" max="500" placeholder="25">
-        <span style="font-family: Georgia, serif; font-size: 11px; font-style: italic; color: var(--gold-ink);">Charged on 2nd no-show</span>
+        <span style="font-family: var(--font-body); font-size: 11px; font-style: italic; color: var(--gold-ink);">Charged on 2nd no-show</span>
       </div>
       <div class="settings-row">
         <label for="setting-notes">Internal Notes</label>
@@ -162,57 +168,57 @@
       <div class="card-title">Maintenance</div>
       <div class="card-sub">Cleanup utilities for exec only</div>
 
-      <p style="font-family: Georgia, serif; font-size: 13px; line-height: 1.5; color: var(--slate); margin-top: 8px;">
+      <p style="font-family: var(--font-body); font-size: 13px; line-height: 1.5; color: var(--slate); margin-top: 8px;">
         If a meeting was deleted before Stage 4's cascade fix, its no-shows and fines may have been left behind as orphans. This button finds any no-show, fine, attendance record, or absence request whose meeting no longer exists and deletes them.
       </p>
-      <p style="font-family: Georgia, serif; font-size: 12px; font-style: italic; color: var(--burgundy); margin-top: 8px;">
+      <p style="font-family: var(--font-body); font-size: 12px; font-style: italic; color: var(--burgundy); margin-top: 8px;">
         Safe to run anytime. Only deletes data that has nothing to point to. Cannot be undone.
       </p>
 
       <button class="btn btn-danger" id="settings-cleanup-orphans" style="margin-top: 14px;">Clean Up Orphaned Records</button>
-      <span id="settings-cleanup-status" style="margin-left: 14px; font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1px; color: var(--gold-ink); text-transform: uppercase;"></span>
+      <span id="settings-cleanup-status" style="margin-left: 14px; font-family: var(--font-ui); font-size: 11px; letter-spacing: 1px; color: var(--gold-ink); text-transform: uppercase;"></span>
 
-      <p style="font-family: Georgia, serif; font-size: 13px; line-height: 1.5; color: var(--slate); margin-top: 22px;">
+      <p style="font-family: var(--font-body); font-size: 13px; line-height: 1.5; color: var(--slate); margin-top: 22px;">
         If the no-show processor created duplicate records for the same brother on the same meeting (e.g., from cache-stale timer ticks), this finds <em>(brother, meeting)</em> pairs with multiple no_show entries, keeps the earliest, and deletes the rest. Auto-recalculates fines. Safe to run anytime.
       </p>
       <button class="btn btn-danger" id="settings-dedupe-noshows" style="margin-top: 8px;">Deduplicate No-Shows</button>
-      <span id="settings-dedupe-status" style="margin-left: 14px; font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1px; color: var(--gold-ink); text-transform: uppercase;"></span>
+      <span id="settings-dedupe-status" style="margin-left: 14px; font-family: var(--font-ui); font-size: 11px; letter-spacing: 1px; color: var(--gold-ink); text-transform: uppercase;"></span>
 
-      <p style="font-family: Georgia, serif; font-size: 13px; line-height: 1.5; color: var(--slate); margin-top: 22px;">
+      <p style="font-family: var(--font-body); font-size: 13px; line-height: 1.5; color: var(--slate); margin-top: 22px;">
         Notifications tied to no-shows or meetings that no longer exist (deleted records). Clears them so the Pending Acknowledgments dashboard isn't cluttered with ghosts.
       </p>
       <button class="btn btn-danger" id="settings-cleanup-notifs" style="margin-top: 8px;">Clean Up Orphaned Notifications</button>
-      <span id="settings-cleanup-notifs-status" style="margin-left: 14px; font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1px; color: var(--gold-ink); text-transform: uppercase;"></span>
+      <span id="settings-cleanup-notifs-status" style="margin-left: 14px; font-family: var(--font-ui); font-size: 11px; letter-spacing: 1px; color: var(--gold-ink); text-transform: uppercase;"></span>
     </div>
 
     <div class="card exec-only">
       <div class="card-title">Build Status</div>
       <div class="card-sub">What's live right now</div>
 
-      <div style="font-family: Georgia, serif; font-size: 14px; line-height: 1.8;">
+      <div style="font-family: var(--font-body); font-size: 14px; line-height: 1.8;">
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span><strong style="color: var(--garnet);">Stage 1: Foundations</strong> &mdash; sign-in, roles, quarter selector</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: var(--font-ui); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span><strong style="color: var(--garnet);">Stage 2: Meetings + Roll Call</strong> &mdash; QR codes, attendance recording</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: var(--font-ui); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span><strong style="color: var(--garnet);">Stage 3: Absence Requests</strong> &mdash; submit, review, approve/deny</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: var(--font-ui); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span><strong style="color: var(--garnet);">Stage 4: No-show enforcement &amp; fines</strong> &mdash; auto-deny, fines, appeals, treasurer ledger</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: var(--font-ui); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span><strong style="color: var(--garnet);">Stage 5A: Excel reports + 50% watchlist</strong> &mdash; 5 reports + Article VI §12 watchlist</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: var(--font-ui); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0;">
           <span><strong style="color: var(--garnet);">Stage 5B: In-app notifications + fine aura</strong> &mdash; sign-in modals, judicial alerts, treasurer receipts</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: var(--font-ui); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;">✓ Live</span>
         </div>
       </div>
     </div>
@@ -263,7 +269,7 @@
     <div class="modal-title" id="appeal-meeting-title">Meeting</div>
     <div class="modal-meta" id="appeal-meeting-meta"></div>
 
-    <p style="font-family: Georgia, serif; font-size: 13px; line-height: 1.5; margin-top: 14px; text-align: left; color: var(--slate);">
+    <p style="font-family: var(--font-body); font-size: 13px; line-height: 1.5; margin-top: 14px; text-align: left; color: var(--slate);">
       Explain why this no-show should be overturned. The Sergeant-at-Arms will review.
     </p>
 
@@ -282,7 +288,7 @@
     <div class="modal-title" id="notif-title">Notification</div>
     <div class="modal-meta" id="notif-meta"></div>
 
-    <p id="notif-message" style="font-family: Georgia, serif; font-size: 15px; line-height: 1.6; margin-top: 18px; text-align: left; color: var(--slate);"></p>
+    <p id="notif-message" style="font-family: var(--font-body); font-size: 15px; line-height: 1.6; margin-top: 18px; text-align: left; color: var(--slate);"></p>
 
     <div style="margin-top: 22px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
       <button class="btn" id="notif-ack">Got It</button>

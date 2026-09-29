@@ -4,7 +4,6 @@
    Per Pi Kappa Alpha Brand Standards Guide (Spring 2026)
    =================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
 
 :root {
   /* Heritage colors */
@@ -30,7 +29,7 @@
 html, body { min-height: 100%; }
 
 body {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-body);
   background: var(--paper);
   color: var(--slate);
   line-height: 1.5;
@@ -42,7 +41,7 @@ body {
 
 /* Headlines use Cormorant Garamond as a free Nimbus Roman substitute */
 h1, h2, h3, .heading-serif {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-display);
   font-weight: 600;
 }
 
@@ -54,7 +53,7 @@ h1, h2, h3, .heading-serif {
   justify-content: flex-end;
   align-items: center;
   gap: 14px;
-  font-family: Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 12px;
   color: var(--slate);
   margin-bottom: 8px;
@@ -67,9 +66,9 @@ h1, h2, h3, .heading-serif {
   color: white;
   border: none;
   padding: 7px 14px;
-  font-family: Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
-  font-weight: bold;
+  font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   cursor: pointer;
@@ -86,9 +85,9 @@ h1, h2, h3, .heading-serif {
   display: inline-block;
   padding: 2px 8px;
   margin-left: 6px;
-  font-family: Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 9px;
-  font-weight: bold;
+  font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   border-radius: 2px;
@@ -129,16 +128,16 @@ header {
   margin: 0 auto;
 }
 .tagline {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
   color: var(--gold-ink);
   letter-spacing: 5px;
   text-transform: uppercase;
   margin-top: 14px;
-  font-weight: bold;
+  font-weight: 600;
 }
 .subtitle {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 26px;
   font-weight: 600;
   color: var(--slate);
@@ -146,13 +145,13 @@ header {
   font-style: italic;
 }
 .chapter-tag {
-  font-family: Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 10px;
   color: var(--garnet);
   letter-spacing: 2px;
   text-transform: uppercase;
   margin-top: 8px;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 /* App-cross-link to event tracker */
@@ -161,7 +160,7 @@ header {
   justify-content: center;
   gap: 14px;
   margin-bottom: 22px;
-  font-family: Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -191,9 +190,9 @@ header {
 }
 .quarter-bar label {
   margin: 0;
-  font-family: Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 10px;
-  font-weight: bold;
+  font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--garnet);
@@ -205,7 +204,7 @@ header {
   font-size: 13px;
 }
 .quarter-bar .quarter-hint {
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   font-size: 12px;
   font-style: italic;
   color: var(--gold-ink);
@@ -229,9 +228,9 @@ header {
   padding: 14px 18px;
   background: transparent;
   border: none;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
-  font-weight: bold;
+  font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--slate);
@@ -261,19 +260,19 @@ header {
   box-shadow: 0 1px 4px rgba(50,62,72,0.05);
 }
 .card-title {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 24px;
   font-weight: 600;
   color: var(--garnet);
   margin-bottom: 6px;
 }
 .card-sub {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
   color: var(--gold-ink);
   letter-spacing: 2px;
   text-transform: uppercase;
-  font-weight: bold;
+  font-weight: 600;
   margin-bottom: 20px;
 }
 
@@ -288,9 +287,9 @@ header {
 /* =================== FORMS =================== */
 label {
   display: block;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
-  font-weight: bold;
+  font-weight: 600;
   color: var(--slate);
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -302,18 +301,18 @@ input, select, textarea {
   padding: 11px 14px;
   border: 1px solid rgba(50,62,72,0.25);
   background: white;
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   font-size: 15px;
   color: var(--slate);
   transition: border-color 0.2s;
 }
-textarea { font-family: Georgia, serif; line-height: 1.5; resize: vertical; }
+textarea { font-family: var(--font-body); line-height: 1.5; resize: vertical; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--garnet); }
 
 .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
 .help {
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   font-size: 12px;
   font-style: italic;
   color: var(--gold-ink);
@@ -327,9 +326,9 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--g
   background: var(--garnet);
   color: white;
   border: none;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-ui);
   font-size: 12px;
-  font-weight: bold;
+  font-weight: 600;
   letter-spacing: 2px;
   text-transform: uppercase;
   cursor: pointer;
@@ -372,7 +371,7 @@ body.is-treasurer .treasurer-only  { display: block; }
   background: var(--light-gold);
   border-left: 3px solid var(--true-gold);
   padding: 10px 14px;
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   font-size: 12px;
   font-style: italic;
   color: var(--slate);
@@ -404,7 +403,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .stat.judicial { border-top-color: var(--dagger); }
 
 .stat-num {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 40px;
   font-weight: 700;
   color: var(--garnet);
@@ -415,7 +414,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .stat.judicial .stat-num { color: var(--dagger); }
 
 .stat-label {
-  font-family: Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 10px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -427,18 +426,18 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .empty {
   text-align: center;
   padding: 40px 20px;
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   font-style: italic;
   color: var(--gold-ink);
 }
 .empty-coming-soon {
   text-align: center;
   padding: 60px 30px;
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   color: var(--gold-ink);
 }
 .empty-coming-soon h3 {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 26px;
   color: var(--garnet);
   margin-bottom: 8px;
@@ -446,7 +445,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 }
 .empty-coming-soon .stage-tag {
   display: inline-block;
-  font-family: Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 10px;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -454,7 +453,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   background: var(--true-gold);
   padding: 3px 10px;
   margin-bottom: 14px;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 /* =================== TOAST =================== */
@@ -466,7 +465,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   background: var(--slate);
   color: white;
   padding: 14px 26px;
-  font-family: Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 1px;
   box-shadow: 0 8px 30px rgba(0,0,0,0.3);
@@ -498,7 +497,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .standing-tile.standing   { border-top-color: var(--garnet); }
 
 .standing-tile .num {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 36px;
   font-weight: 700;
   line-height: 1;
@@ -507,7 +506,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .standing-tile.no-shows .num { color: var(--crimson); }
 .standing-tile.fines .num    { color: var(--memphis-brick); }
 .standing-tile .label {
-  font-family: Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 9px;
   letter-spacing: 1.3px;
   text-transform: uppercase;
@@ -515,7 +514,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   margin-top: 8px;
 }
 .standing-tile .sub {
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   font-size: 11px;
   color: var(--gold-ink);
   font-style: italic;
@@ -592,19 +591,19 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .modal-close:hover { color: var(--garnet); }
 
 .modal-title {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 26px;
   font-weight: 600;
   color: var(--garnet);
   margin-bottom: 4px;
 }
 .modal-meta {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
   color: var(--gold-ink);
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  font-weight: bold;
+  font-weight: 600;
   margin-bottom: 24px;
 }
 
@@ -621,7 +620,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 }
 
 .modal-help {
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   font-size: 12px;
   font-style: italic;
   color: var(--gold-ink);
@@ -646,11 +645,11 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   margin-top: 18px;
 }
 .roll-sheet-header {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  font-weight: bold;
+  font-weight: 600;
   padding: 10px 14px;
   color: white;
 }
@@ -1088,16 +1087,16 @@ body.welcome-pulsing::after {
   border-left: 3px solid var(--true-gold);
 }
 .mtg-tip-label {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-ui);
   font-size: 10px;
-  font-weight: bold;
+  font-weight: 600;
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--garnet);
   margin-bottom: 6px;
 }
 .mtg-tip-body {
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   font-size: 13.5px;
   line-height: 1.6;
   color: var(--slate);
@@ -1105,7 +1104,7 @@ body.welcome-pulsing::after {
 .mtg-tip-body strong { color: var(--burgundy); }
 
 .mtg-leadtime {
-  font-family: Georgia, serif;
+  font-family: var(--font-body);
   font-size: 13px;
   font-style: italic;
   line-height: 1.5;
@@ -1119,7 +1118,7 @@ body.welcome-pulsing::after {
 .mtg-leadtime:empty { display: none; }
 .mtg-leadtime.is-good { color: var(--gold-ink);   border-left-color: var(--true-gold); }
 .mtg-leadtime.is-warn { color: var(--crimson);    border-left-color: var(--memphis-brick); }
-.mtg-leadtime.is-bad  { color: var(--garnet);     border-left-color: var(--garnet); font-style: normal; font-weight: bold; }
+.mtg-leadtime.is-bad  { color: var(--garnet);     border-left-color: var(--garnet); font-style: normal; font-weight: 600; }
 
 @media (max-width: 600px) {
   .mtg-tip { padding: 12px 14px; }
@@ -1159,8 +1158,12 @@ body.welcome-pulsing::after {
   --inset-deep: inset 5px 5px 11px rgba(120, 98, 66, 0.22), inset -4px -4px 9px rgba(255, 255, 255, 0.9);
 
   /* Type */
-  --font-body:  Georgia, "Times New Roman", serif;
-  --font-label: Arial, Helvetica, sans-serif;
+  /* Type pairing: Cormorant Garamond (display, brand serif) + Gantari
+     (the PIKE brand guide's official sans) for everything else. */
+  --font-display: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
+  --font-ui:      'Gantari', 'Helvetica Neue', Arial, sans-serif;
+  --font-body:    'Gantari', 'Helvetica Neue', Arial, sans-serif;
+  --font-label:   var(--font-ui);
   --fs-xs: 10px;  --fs-sm: 12px;  --fs-md: 14px;
   --fs-lg: 16px;  --fs-xl: 22px;  --fs-2xl: 28px;
 
@@ -1409,7 +1412,7 @@ table { border-radius: var(--r-md); overflow: hidden; }
   letter-spacing: 2px; text-transform: uppercase; color: var(--true-gold);
 }
 .welcome-card .wb-title {
-  font-family: 'Cormorant Garamond', Georgia, serif; font-size: 30px; font-weight: 600;
+  font-family: var(--font-display); font-size: 30px; font-weight: 600;
   line-height: 1.15; margin: 4px 40px 4px 0;
 }
 .welcome-card .wb-sub { font-family: var(--font-body); font-size: 14px; font-style: italic; color: rgba(255,255,255,0.82); margin-bottom: 18px; }
@@ -1428,7 +1431,7 @@ table { border-radius: var(--r-md); overflow: hidden; }
   flex: 0 0 auto; min-width: 38px; height: 38px; padding: 0 8px; border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,0.18); box-shadow: inset 2px 2px 5px rgba(0,0,0,0.25), inset -2px -2px 5px rgba(255,255,255,0.08);
-  font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 700; color: var(--true-gold);
+  font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--true-gold);
 }
 .welcome-card .wb-label { font-family: var(--font-label); font-size: 11px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; }
 .welcome-card .wb-detail { font-family: var(--font-body); font-size: 13px; line-height: 1.4; color: rgba(255,255,255,0.85); margin-top: 3px; }
@@ -1472,7 +1475,7 @@ table { border-radius: var(--r-md); overflow: hidden; }
 
 .nm-clock { display: flex; align-items: baseline; gap: 6px; margin-top: 14px; line-height: 1; }
 .nm-time {
-  font-family: 'Cormorant Garamond', Georgia, serif; font-size: 64px; font-weight: 600;
+  font-family: var(--font-display); font-size: 64px; font-weight: 600;
   color: var(--garnet); letter-spacing: -1px;
 }
 .nm-ampm { font-family: var(--font-label); font-size: 14px; font-weight: bold; letter-spacing: 1.5px; color: var(--gold-ink); }
@@ -1521,3 +1524,119 @@ table { border-radius: var(--r-md); overflow: hidden; }
   .nm-week::after { left: 20px; right: 20px; }
 }
 @media (prefers-reduced-motion: reduce) { .nm-sun-glow { animation: none; } .nm-card:hover { transform: none; } }
+
+/* ----- Typography system (display serif + Gantari UI) ----- */
+body { font-family: var(--font-body); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+input, select, textarea, button { font-family: var(--font-body); }
+p { line-height: 1.6; }
+.card-title, .modal-title, .modal h3, h1, h2, h3, .heading-serif, .add-brother-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.card-title { font-size: 28px; line-height: 1.15; }
+.subtitle { font-family: var(--font-display); font-weight: 500; letter-spacing: -0.01em; }
+.stat-num, .standing-tile .num { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
+.card-sub, label, .tab, .btn, .stat-label, .standing-tile .label, .chapter-tag, .tagline,
+.app-link-bar a, .auth-bar button, .role-pill, .count-pill, .badge, .quarter-bar label {
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+.help, .empty, .modal-meta, .modal-help, .quarter-hint, .standing-tile .sub, .mtg-leadtime {
+  font-family: var(--font-body);
+}
+
+/* ----- Now widgets: live clock + Westwood weather ----- */
+#now-widgets:empty { display: none; }
+.nw-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.nw-card {
+  position: relative; overflow: hidden; min-height: 150px;
+  border-radius: var(--r-lg); padding: 22px 24px;
+  transition: transform 0.8s cubic-bezier(0.15, 0.83, 0.66, 1), box-shadow 0.35s var(--ease-soft);
+}
+.nw-card:hover { transform: translateY(-2px) scale(1.01); }
+.nw-card[hidden] { display: none; }
+.nw-row:has(.nw-weather[hidden]) { grid-template-columns: 1fr; }
+
+/* Time card */
+.nw-time {
+  color: white;
+  background: linear-gradient(120deg, var(--garnet) 0%, var(--burgundy) 100%);
+  box-shadow: 8px 10px 26px rgba(87, 42, 49, 0.32), -6px -6px 14px var(--sh-light);
+}
+.nw-time.is-night { background: linear-gradient(120deg, var(--burgundy) 0%, var(--dagger) 100%); }
+.nw-time:hover { box-shadow: 10px 14px 34px rgba(29, 37, 44, 0.42), -6px -6px 14px var(--sh-light); }
+.nw-label { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--true-gold); }
+.nw-clock { font-family: var(--font-display); font-size: 56px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.05; }
+.nw-ampm { font-family: var(--font-ui); font-size: 14px; font-weight: 600; letter-spacing: 1px; margin-left: 6px; color: rgba(255,255,255,0.8); }
+.nw-day { font-family: var(--font-ui); font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.88); margin-top: 2px; }
+.nw-time-icon { position: absolute; top: 20px; right: 22px; width: 30px; height: 30px; transition: transform 0.3s var(--ease-soft); }
+.nw-card:hover .nw-time-icon, .nw-card:hover .nw-wx-art { transform: scale(1.1); }
+
+/* Weather card */
+.nw-weather {
+  background:
+    radial-gradient(160% 110% at 20% 110%, rgba(235, 222, 180, 0.9) 0%, rgba(255,255,255,0) 70%),
+    var(--surface);
+  box-shadow: 0 30px 40px rgba(87, 77, 51, 0.05), 0 12px 22px rgba(87, 77, 51, 0.10), -6px -6px 14px var(--sh-light);
+  color: var(--slate);
+}
+.nw-wx-head { display: flex; flex-direction: column; gap: 2px; }
+.nw-wx-place { font-family: var(--font-ui); font-size: 15px; font-weight: 700; color: rgba(87, 77, 51, 0.85); }
+.nw-wx-sub { font-family: var(--font-ui); font-size: 13px; font-weight: 500; color: var(--gold-ink); }
+.nw-wx-temp { font-family: var(--font-display); font-size: 56px; font-weight: 600; line-height: 1; margin-top: 10px; color: rgb(87, 77, 51); letter-spacing: -0.02em; }
+.nw-wx-temp span { font-family: var(--font-ui); font-size: 16px; font-weight: 600; margin-left: 2px; vertical-align: top; }
+.nw-wx-meta { font-family: var(--font-ui); font-size: 12px; font-weight: 500; color: var(--gold-ink); margin-top: 4px; }
+.nw-wx-pill {
+  position: absolute; right: 22px; bottom: 20px; padding: 7px 14px; border-radius: 10px;
+  background: rgba(0,0,0,0.06); font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: rgba(87, 77, 51, 0.8);
+}
+.nw-wx-art { position: absolute; top: 18px; right: 22px; width: 64px; height: 52px; transition: transform 0.3s var(--ease-soft); }
+
+/* Icons */
+.nw-sun { position: absolute; top: 0; right: 0; width: 30px; height: 30px; display: block; }
+.nw-wx-art .nw-sun { width: 40px; height: 40px; }
+.nw-sun-core, .nw-sun-glow { position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(135deg, #E8B84A, #F5DC8A); }
+.nw-sun-glow { animation: nw-shine 2.2s ease-out infinite; }
+@keyframes nw-shine { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.5); opacity: 0; } }
+.nw-moon { position: absolute; top: 0; right: 0; width: 30px; height: 30px; fill: var(--true-gold); filter: drop-shadow(0 2px 8px rgba(170,151,103,0.5)); }
+.nw-cloud { position: absolute; fill: #D9DDE3; filter: drop-shadow(0 4px 6px rgba(50,62,72,0.15)); animation: nw-drift 7s ease-in-out infinite; }
+.nw-cloud.is-front { width: 46px; right: 16px; top: 22px; }
+.nw-cloud.is-solo  { width: 58px; right: 0; top: 6px; }
+@keyframes nw-drift { 0%, 100% { transform: translateX(6px); } 50% { transform: translateX(0); } }
+.nw-drops { position: absolute; right: 12px; top: 42px; display: flex; gap: 9px; }
+.nw-drops i { width: 3px; height: 9px; border-radius: 3px; background: #7FA7D1; animation: nw-rain 1.1s linear infinite; }
+.nw-drops i:nth-child(2) { animation-delay: 0.35s; }
+.nw-drops i:nth-child(3) { animation-delay: 0.7s; }
+@keyframes nw-rain { 0% { transform: translateY(-4px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(10px); opacity: 0; } }
+
+/* Forecast line on the Next Meeting card */
+.nm-forecast {
+  display: flex; align-items: center; gap: 12px; margin-top: 16px;
+  font-family: var(--font-ui); font-size: 14px; color: var(--slate);
+}
+.nm-forecast > .nw-sun, .nm-forecast > .nw-moon, .nm-forecast > .nw-cloud { position: relative; top: auto; right: auto; width: 24px; height: 24px; flex: 0 0 24px; }
+.nm-forecast > .nw-cloud { height: auto; }
+.nm-forecast > .nw-drops, .nm-forecast > .nw-cloud.is-front { display: none; }
+.nm-forecast strong { color: var(--garnet); font-weight: 700; }
+
+@media (max-width: 600px) {
+  .nw-row { gap: 12px; }
+  .nw-card { padding: 18px 16px; min-height: 132px; }
+  .nw-clock, .nw-wx-temp { font-size: 42px; }
+  .nw-day { font-size: 13px; }
+  .nw-wx-art { width: 48px; height: 40px; right: 14px; }
+  .nw-wx-art .nw-sun { width: 30px; height: 30px; }
+  .nw-wx-pill { right: 14px; bottom: 14px; font-size: 11px; padding: 5px 10px; }
+  .nw-time-icon { right: 14px; top: 16px; width: 24px; height: 24px; }
+  .nw-time-icon .nw-sun, .nw-time-icon .nw-moon { width: 24px; height: 24px; }
+}
+@media (max-width: 520px) { .nw-row { grid-template-columns: 1fr; } .nw-card { min-height: 0; } }
+@media (prefers-reduced-motion: reduce) { .nw-sun-glow, .nw-cloud, .nw-drops i { animation: none; } .nw-card:hover { transform: none; } }
+
+/* Lining (not old-style) figures for every number set in the display serif */
+.wb-num, .nw-clock, .nw-wx-temp, .nm-time, .nm-num, .stat-num, .standing-tile .num,
+.card-title, .modal-title, h1, h2, h3 {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "lnum" 1, "tnum" 1;
+}
