@@ -70,7 +70,7 @@ h1, h2, h3, .heading-serif {
   font-family: Arial, sans-serif;
   font-size: 11px;
   font-weight: bold;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -89,7 +89,7 @@ h1, h2, h3, .heading-serif {
   font-family: Arial, sans-serif;
   font-size: 9px;
   font-weight: bold;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   border-radius: 2px;
   vertical-align: middle;
@@ -132,7 +132,7 @@ header {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   color: var(--gold-ink);
-  letter-spacing: 5px;
+  letter-spacing: 3px;
   text-transform: uppercase;
   margin-top: 14px;
   font-weight: bold;
@@ -149,7 +149,7 @@ header {
   font-family: Arial, sans-serif;
   font-size: 10px;
   color: var(--garnet);
-  letter-spacing: 2px;
+  letter-spacing: 1.1px;
   text-transform: uppercase;
   margin-top: 8px;
   font-weight: bold;
@@ -163,7 +163,7 @@ header {
   margin-bottom: 22px;
   font-family: Arial, sans-serif;
   font-size: 11px;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
 }
 .app-link-bar a {
@@ -194,7 +194,7 @@ header {
   font-family: Arial, sans-serif;
   font-size: 10px;
   font-weight: bold;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   color: var(--garnet);
 }
@@ -232,7 +232,7 @@ header {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   font-weight: bold;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   color: var(--slate);
   cursor: pointer;
@@ -271,7 +271,7 @@ header {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   color: var(--gold-ink);
-  letter-spacing: 2px;
+  letter-spacing: 1.1px;
   text-transform: uppercase;
   font-weight: bold;
   margin-bottom: 20px;
@@ -292,7 +292,7 @@ label {
   font-size: 11px;
   font-weight: bold;
   color: var(--slate);
-  letter-spacing: 1.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   margin-bottom: 6px;
   margin-top: 14px;
@@ -330,7 +330,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--g
   font-family: Arial, Helvetica, sans-serif;
   font-size: 12px;
   font-weight: bold;
-  letter-spacing: 2px;
+  letter-spacing: 1.1px;
   text-transform: uppercase;
   cursor: pointer;
   margin-top: 18px;
@@ -417,7 +417,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .stat-label {
   font-family: Arial, sans-serif;
   font-size: 10px;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   color: var(--slate);
   margin-top: 8px;
@@ -448,7 +448,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   display: inline-block;
   font-family: Arial, sans-serif;
   font-size: 10px;
-  letter-spacing: 2px;
+  letter-spacing: 1.1px;
   text-transform: uppercase;
   color: white;
   background: var(--true-gold);
@@ -468,7 +468,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   padding: 14px 26px;
   font-family: Arial, sans-serif;
   font-size: 13px;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   box-shadow: 0 8px 30px rgba(0,0,0,0.3);
   opacity: 0;
   transition: all 0.3s ease;
@@ -509,7 +509,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .standing-tile .label {
   font-family: Arial, sans-serif;
   font-size: 9px;
-  letter-spacing: 1.3px;
+  letter-spacing: 0.7px;
   text-transform: uppercase;
   color: var(--slate);
   margin-top: 8px;
@@ -602,7 +602,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   color: var(--gold-ink);
-  letter-spacing: 1.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   font-weight: bold;
   margin-bottom: 24px;
@@ -648,7 +648,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .roll-sheet-header {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   font-weight: bold;
   padding: 10px 14px;
@@ -997,7 +997,7 @@ body.has-active-fine::before {
 .modal.notif-judicial .modal-title {
   font-style: normal;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 /* ----- Fix the aura-vs-modal visual conflict -----
@@ -1091,7 +1091,7 @@ body.welcome-pulsing::after {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 10px;
   font-weight: bold;
-  letter-spacing: 2px;
+  letter-spacing: 1.1px;
   text-transform: uppercase;
   color: var(--garnet);
   margin-bottom: 6px;
@@ -1287,4 +1287,161 @@ table { border-radius: var(--r-md); overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .btn, .tab, .card { transition: none; }
+}
+
+/* ----- v2: no side accent bars. Severity = soft tint, not a stripe ----- */
+.card.warn, .card.danger, .card.judicial,
+.quarter-bar, .role-notice, .toast, .mtg-tip, .mtg-leadtime,
+.selected-brother, .exec-notice, .notice, .roster-item, .add-brother {
+  border-left: none !important;
+}
+.stat, .standing-tile { border-top: none !important; }
+.card.warn     { background: color-mix(in srgb, var(--crimson) 6%, white); }
+.card.danger   { background: color-mix(in srgb, var(--memphis-brick) 8%, white); }
+.card.judicial { background: color-mix(in srgb, var(--dagger) 6%, white); }
+.stat.warn     { background: color-mix(in srgb, var(--crimson) 7%, white); }
+.stat.danger   { background: color-mix(in srgb, var(--memphis-brick) 9%, white); }
+.stat.judicial { background: color-mix(in srgb, var(--dagger) 7%, white); }
+.mtg-tip { background: color-mix(in srgb, var(--true-gold) 12%, white); padding: 16px 20px; }
+.mtg-leadtime { padding: 10px 14px; border-radius: var(--r-md); }
+.mtg-leadtime.is-good { background: color-mix(in srgb, var(--true-gold) 12%, white); }
+.mtg-leadtime.is-warn { background: color-mix(in srgb, var(--crimson) 8%, white); }
+.mtg-leadtime.is-bad  { background: color-mix(in srgb, var(--garnet) 9%, white); }
+.roster-item.high { background: color-mix(in srgb, var(--garnet) 5%, white); }
+
+/* ----- Card hover glow (warm gold halo) ----- */
+.card { transition: transform 0.4s var(--ease-soft), box-shadow 0.35s var(--ease-soft); }
+.card:hover {
+  box-shadow: var(--raised-hi), 0 0 0 1px rgba(170, 151, 103, 0.28), 0 0 32px rgba(170, 151, 103, 0.22);
+}
+.modal-card:hover, #standing-card:hover, .empty-coming-soon:hover, .welcome-card:hover { box-shadow: var(--raised); }
+
+/* ----- Expanding sign-out button: circle that slides open ----- */
+.auth-bar #auth-signout.signout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 40px; height: 40px; padding: 0;
+  border: none; border-radius: var(--r-pill);
+  background: var(--garnet); color: white;
+  overflow: hidden; cursor: pointer; position: relative;
+  box-shadow: 4px 4px 10px rgba(121, 36, 47, 0.28), -3px -3px 8px var(--sh-light);
+  transition: width 0.3s var(--ease-soft), background 0.2s, transform 0.15s;
+  vertical-align: middle;
+}
+.signout-btn .so-icon { flex: 0 0 40px; display: flex; align-items: center; justify-content: center; transition: flex-basis 0.3s var(--ease-soft); }
+.signout-btn .so-icon svg { width: 17px; height: 17px; }
+.signout-btn .so-text {
+  white-space: nowrap; opacity: 0; font-family: var(--font-label);
+  font-size: 11px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase;
+  transition: opacity 0.2s var(--ease-soft);
+}
+.auth-bar #auth-signout.signout-btn:hover,
+.auth-bar #auth-signout.signout-btn:focus-visible { width: 124px; background: var(--burgundy); }
+.signout-btn:hover .so-icon, .signout-btn:focus-visible .so-icon { flex-basis: 38px; }
+.signout-btn:hover .so-text, .signout-btn:focus-visible .so-text { opacity: 1; }
+.auth-bar #auth-signout.signout-btn:active { transform: translate(1px, 1px); }
+@media (hover: none) {
+  .auth-bar #auth-signout.signout-btn { width: 116px; }
+  .signout-btn .so-icon { flex-basis: 38px; }
+  .signout-btn .so-text { opacity: 1; }
+}
+
+/* ----- Glowing border on the brother name search ----- */
+@property --pike-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+.brother-search { position: relative; border-radius: var(--r-md); }
+.brother-search::before {
+  content: ""; position: absolute; inset: -2px; border-radius: 18px; z-index: 0;
+  background: conic-gradient(from var(--pike-angle), transparent 0%, var(--garnet) 12%, transparent 30%, transparent 50%, var(--true-gold) 62%, transparent 80%);
+  opacity: 0; filter: blur(0.5px);
+  transition: opacity 0.4s var(--ease-soft);
+  pointer-events: none;
+}
+.brother-search:focus-within::before { opacity: 1; animation: pike-spin 3.2s linear infinite; }
+.brother-search input { position: relative; z-index: 1; background: var(--surface-2); }
+.brother-search .clear-btn { z-index: 2; }
+.brother-search .suggestions { z-index: 20; }
+@keyframes pike-spin { to { --pike-angle: 360deg; } }
+
+/* ----- Dropdown rows that lift on hover ----- */
+.suggestions { padding: 6px; background: var(--surface); border: none; }
+.suggestion {
+  border-radius: var(--r-sm); border-bottom: none !important;
+  transition: background 0.25s var(--ease-soft), color 0.2s, transform 0.25s var(--ease-soft);
+}
+.suggestion:hover, .suggestion.active { background: var(--garnet) !important; color: white; transform: translate(1px, -1px); }
+.suggestion:hover .status-tag, .suggestion.active .status-tag { color: var(--khaki); }
+
+/* ----- Garnet to gold loading spinner ----- */
+.pike-spinner {
+  display: inline-block; width: 22px; height: 22px; border-radius: 50%;
+  background: conic-gradient(var(--garnet), var(--true-gold), transparent 75%);
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 57%);
+          mask: radial-gradient(circle, transparent 55%, #000 57%);
+  animation: pike-rotate 0.9s linear infinite;
+  vertical-align: middle; margin-right: 8px;
+}
+@keyframes pike-rotate { to { transform: rotate(360deg); } }
+
+/* ----- Welcome Back card ----- */
+.welcome-card {
+  position: relative; overflow: hidden;
+  border-radius: var(--r-lg);
+  padding: 26px 28px 24px;
+  margin-bottom: 20px;
+  color: white;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(170,151,103,0.35) 0%, transparent 55%),
+    linear-gradient(145deg, var(--garnet) 0%, var(--burgundy) 100%);
+  box-shadow: 10px 10px 24px rgba(87, 42, 49, 0.30), -6px -6px 16px var(--sh-light);
+  animation: welcome-in 0.6s var(--ease-soft);
+}
+@keyframes welcome-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+.welcome-card .wb-close {
+  position: absolute; top: 14px; right: 14px; width: 32px; height: 32px;
+  border: none; border-radius: 50%; cursor: pointer;
+  background: rgba(255,255,255,0.14); color: white; font-size: 18px; line-height: 1;
+  transition: background 0.2s;
+}
+.welcome-card .wb-close:hover { background: rgba(255,255,255,0.26); }
+.welcome-card .wb-eyebrow {
+  font-family: var(--font-label); font-size: 11px; font-weight: bold;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--true-gold);
+}
+.welcome-card .wb-title {
+  font-family: 'Cormorant Garamond', Georgia, serif; font-size: 30px; font-weight: 600;
+  line-height: 1.15; margin: 4px 40px 4px 0;
+}
+.welcome-card .wb-sub { font-family: var(--font-body); font-size: 14px; font-style: italic; color: rgba(255,255,255,0.82); margin-bottom: 18px; }
+.welcome-card .wb-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.welcome-card .wb-item {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px 16px; border-radius: var(--r-md);
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.14);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  transition: transform 0.3s var(--ease-soft), background 0.3s;
+}
+.welcome-card .wb-item:hover { transform: translateY(-2px); background: rgba(255,255,255,0.16); }
+.welcome-card .wb-item.is-alert { background: rgba(255,255,255,0.20); border-color: rgba(170,151,103,0.7); }
+.welcome-card .wb-num {
+  flex: 0 0 auto; min-width: 38px; height: 38px; padding: 0 8px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.18); box-shadow: inset 2px 2px 5px rgba(0,0,0,0.25), inset -2px -2px 5px rgba(255,255,255,0.08);
+  font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 700; color: var(--true-gold);
+}
+.welcome-card .wb-label { font-family: var(--font-label); font-size: 11px; font-weight: bold; letter-spacing: 0.6px; text-transform: uppercase; }
+.welcome-card .wb-detail { font-family: var(--font-body); font-size: 13px; line-height: 1.4; color: rgba(255,255,255,0.85); margin-top: 3px; }
+.welcome-card .wb-caught { font-family: var(--font-body); font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 14px; }
+@media (max-width: 600px) {
+  .welcome-card { padding: 22px 18px 18px; }
+  .welcome-card .wb-title { font-size: 26px; }
+  .welcome-card .wb-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .welcome-card .wb-item { flex-direction: column; gap: 8px; padding: 12px; }
+  .welcome-card .wb-num { height: 34px; min-width: 34px; font-size: 19px; }
+  .welcome-card .wb-label { font-size: 10px; }
+  .welcome-card .wb-detail { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome-card, .brother-search:focus-within::before, .pike-spinner { animation: none; }
 }

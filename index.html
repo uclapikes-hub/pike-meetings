@@ -18,7 +18,7 @@
   <div class="auth-bar">
     <span id="auth-status">Not signed in</span>
     <button id="auth-signin">Sign In with Google</button>
-    <button id="auth-signout" style="display:none;">Sign Out</button>
+    <button id="auth-signout" class="signout-btn" style="display:none;" aria-label="Sign out" title="Sign out"><span class="so-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span><span class="so-text">Sign out</span></button>
   </div>
 
   <!-- ============== HEADER ============== -->
@@ -58,6 +58,9 @@
   <div class="panel active" id="panel-rollcall">
 
     <!-- Brother dashboard (shown when signed in & in roster) -->
+    <!-- Welcome Back card (shown once per sign-in) -->
+    <div id="welcome-back"></div>
+
     <div class="card" id="standing-card" style="display:none;"></div>
 
     <!-- Guest / not-signed-in card -->
@@ -101,7 +104,7 @@
       <div class="card-title">Approver Officers</div>
       <div class="card-sub">Review absence requests &middot; Editable for term transitions</div>
 
-      <div style="margin-top: 8px; padding: 12px 14px; background: var(--khaki); border-left: 3px solid var(--burgundy); font-family: Georgia, serif; font-size: 12px; line-height: 1.5;">
+      <div style="margin-top: 8px; padding: 12px 14px; background: var(--khaki); background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px; font-family: Georgia, serif; font-size: 12px; line-height: 1.5; border-radius: 14px;">
         <strong style="color: var(--burgundy);">⚠ Officer Transition Note:</strong> updating these emails changes the UI immediately, but Firestore security rules ALSO need to be updated when officers actually rotate, otherwise the new officers won't be able to approve. Ping the dev (or follow the rules-update walkthrough in the project docs) when officers change.
       </div>
 
@@ -167,19 +170,19 @@
       </p>
 
       <button class="btn btn-danger" id="settings-cleanup-orphans" style="margin-top: 14px;">Clean Up Orphaned Records</button>
-      <span id="settings-cleanup-status" style="margin-left: 14px; font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1px; color: var(--gold-ink); text-transform: uppercase;"></span>
+      <span id="settings-cleanup-status" style="margin-left: 14px; font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.5px; color: var(--gold-ink); text-transform: uppercase;"></span>
 
       <p style="font-family: Georgia, serif; font-size: 13px; line-height: 1.5; color: var(--slate); margin-top: 22px;">
         If the no-show processor created duplicate records for the same brother on the same meeting (e.g., from cache-stale timer ticks), this finds <em>(brother, meeting)</em> pairs with multiple no_show entries, keeps the earliest, and deletes the rest. Auto-recalculates fines. Safe to run anytime.
       </p>
       <button class="btn btn-danger" id="settings-dedupe-noshows" style="margin-top: 8px;">Deduplicate No-Shows</button>
-      <span id="settings-dedupe-status" style="margin-left: 14px; font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1px; color: var(--gold-ink); text-transform: uppercase;"></span>
+      <span id="settings-dedupe-status" style="margin-left: 14px; font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.5px; color: var(--gold-ink); text-transform: uppercase;"></span>
 
       <p style="font-family: Georgia, serif; font-size: 13px; line-height: 1.5; color: var(--slate); margin-top: 22px;">
         Notifications tied to no-shows or meetings that no longer exist (deleted records). Clears them so the Pending Acknowledgments dashboard isn't cluttered with ghosts.
       </p>
       <button class="btn btn-danger" id="settings-cleanup-notifs" style="margin-top: 8px;">Clean Up Orphaned Notifications</button>
-      <span id="settings-cleanup-notifs-status" style="margin-left: 14px; font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1px; color: var(--gold-ink); text-transform: uppercase;"></span>
+      <span id="settings-cleanup-notifs-status" style="margin-left: 14px; font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.5px; color: var(--gold-ink); text-transform: uppercase;"></span>
     </div>
 
     <div class="card exec-only">
@@ -189,27 +192,27 @@
       <div style="font-family: Georgia, serif; font-size: 14px; line-height: 1.8;">
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span><strong style="color: var(--garnet);">Stage 1: Foundations</strong> &mdash; sign-in, roles, quarter selector</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span><strong style="color: var(--garnet);">Stage 2: Meetings + Roll Call</strong> &mdash; QR codes, attendance recording</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span><strong style="color: var(--garnet);">Stage 3: Absence Requests</strong> &mdash; submit, review, approve/deny</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span><strong style="color: var(--garnet);">Stage 4: No-show enforcement &amp; fines</strong> &mdash; auto-deny, fines, appeals, treasurer ledger</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--light-gold);">
           <span><strong style="color: var(--garnet);">Stage 5A: Excel reports + 50% watchlist</strong> &mdash; 5 reports + Article VI §12 watchlist</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 8px 0;">
           <span><strong style="color: var(--garnet);">Stage 5B: In-app notifications + fine aura</strong> &mdash; sign-in modals, judicial alerts, treasurer receipts</span>
-          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
+          <span style="color: var(--gold-ink); font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: bold;">✓ Live</span>
         </div>
       </div>
     </div>

@@ -137,6 +137,122 @@ function relativeTime(dateOrTimestamp) {
 // ===================================================================
 let _hasShownWelcomePulse = false;
 
+// ===================================================================
+// WELCOME BACK CARD
+// Shows once per sign-in: what changed since this person's last visit.
+// Last-visit time lives in this browser only (localStorage), never in
+// Firestore, and every read/write is guarded so it can't break the app.
+// ===================================================================
+let _welcome = null; // { since: ms|null, dismissed: bool }
+
+function startWelcomeBack(email) {
+  const key = "pike-meetings:lastSeen:" + String(email || "").toLowerCase();
+  let since = null;
+  try { const v = Number(localStorage.getItem(key)); if (v > 0) since = v; } catch (e) {}
+  try { localStorage.setItem(key, String(Date.now())); } catch (e) {}
+  _welcome = { since, dismissed: false };
+}
+
+function toMs(v) {
+  if (!v) return 0;
+  if (typeof v === "number") return v;
+  if (typeof v.toMillis === "function") return v.toMillis();
+  if (v instanceof Date) return v.getTime();
+  const n = Date.parse(v); return isNaN(n) ? 0 : n;
+}
+
+function renderWelcomeBack() {
+  const el = $("welcome-back");
+  if (!el) return;
+  if (!state.user || !_welcome || _welcome.dismissed) { el.dataset.html = ""; el.innerHTML = ""; return; }
+
+  const u = state.user;
+  const me = u.rosterEntry;
+  const since = _welcome.since;           // null = first visit on this device
+  const isNew = t => since != null && toMs(t) > since;
+  const firstName = me ? me.firstName : (u.email || "").split("@")[0];
+  const now = Date.now();
+  const items = [];
+  const add = (num, label, detail, alert) => items.push({ num, label, detail, alert });
+
+  // New meetings scheduled since last visit
+  const newMtgs = state.meetings.filter(m => isNew(m.createdAt));
+  if (newMtgs.length) {
+    const mand = newMtgs.filter(m => m.mandatory).length;
+    add(newMtgs.length, `New meeting${newMtgs.length === 1 ? "" : "s"} scheduled`,
+        mand ? `${mand} mandatory` : newMtgs.map(m => m.title).slice(0, 2).join(", "), mand > 0);
+  }
+
+  if (me) {
+    // Decisions on my absence requests
+    const decided = state.absenceRequests.filter(r => r.brotherKey === me.key && r.status !== "pending" && isNew(r.reviewedAt));
+    if (decided.length) {
+      const ok = decided.filter(r => r.status === "approved").length;
+      add(decided.length, "Absence request update" + (decided.length === 1 ? "" : "s"),
+          `${ok} approved, ${decided.length - ok} denied`, decided.length - ok > 0);
+    }
+    // New no-shows recorded for me
+    const ns = state.noShows.filter(n => n.brotherKey === me.key && isNew(n.timestamp));
+    if (ns.length) add(ns.length, "New no-show" + (ns.length === 1 ? "" : "s"), ns[0].meetingTitle || "Chapter meeting", true);
+    // Outstanding fines
+    const owed = state.fines.filter(f => f.brotherKey === me.key && f.status === "pending");
+    if (owed.length) {
+      const total = owed.reduce((s, f) => s + (Number(f.amount) || 0), 0);
+      add("$" + total, "Outstanding fine" + (owed.length === 1 ? "" : "s"), "Pay the Treasurer to clear it", true);
+    }
+  }
+
+  // Officer queues (current, not just new)
+  if (u.isApprover) {
+    const pend = state.absenceRequests.filter(r => r.status === "pending").length;
+    if (pend) add(pend, "Requests to review", "Absence Requests tab", false);
+  }
+  if (u.isSgt) {
+    const ap = state.noShows.filter(n => n.appealStatus === "pending").length;
+    if (ap) add(ap, "Appeals waiting", "Your review is needed", false);
+  }
+  if (u.isTreasurer) {
+    const unpaid = state.fines.filter(f => f.status === "pending").length;
+    if (unpaid) add(unpaid, "Unpaid fines", "Chapter-wide ledger", false);
+  }
+
+  // Next meeting, always useful
+  const next = state.meetings
+    .map(m => ({ m, t: combineLocalDateTime(m.date, m.startTime).getTime() }))
+    .filter(x => x.t > now)
+    .sort((a, b) => a.t - b.t)[0];
+  if (next) {
+    const days = Math.round((next.t - now) / 86400000);
+    add(days <= 0 ? "Today" : days + "d", "Next meeting",
+        `${next.m.title} · ${fmtDateLong(next.m.date)}, ${fmtTime(next.m.startTime)}${next.m.mandatory ? " · mandatory" : ""}`,
+        !!next.m.mandatory);
+  }
+
+  const sinceText = since == null
+    ? "Here's where things stand."
+    : `Here's what you missed since ${new Date(since).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.`;
+  const hasNews = items.some(i => i.label !== "Next meeting");
+
+  const html = `
+    <section class="welcome-card" aria-label="Welcome back">
+      <button class="wb-close" type="button" aria-label="Dismiss" id="wb-close">&times;</button>
+      <div class="wb-eyebrow">Iota Pi · Chapter Meetings</div>
+      <div class="wb-title">${since == null ? "Hey" : "Welcome back"}, ${escapeHtml(firstName)}</div>
+      <div class="wb-sub">${sinceText}</div>
+      ${items.length ? `<div class="wb-grid">${items.map(i => `
+        <div class="wb-item${i.alert ? " is-alert" : ""}">
+          <div class="wb-num">${escapeHtml(String(i.num))}</div>
+          <div><div class="wb-label">${escapeHtml(i.label)}</div>
+          ${i.detail ? `<div class="wb-detail">${escapeHtml(i.detail)}</div>` : ""}</div>
+        </div>`).join("")}</div>` : ""}
+      ${!hasNews ? `<div class="wb-caught">You're all caught up. Nothing new since your last visit.</div>` : ""}
+    </section>`;
+  if (el.dataset.html === html) return;   // unchanged: don't replay the entrance animation
+  el.dataset.html = html;
+  el.innerHTML = html;
+  $("wb-close").addEventListener("click", () => { _welcome.dismissed = true; el.dataset.html = ""; el.innerHTML = ""; });
+}
+
 authApi.onChange(user => {
   const wasSignedIn = !!state.user;
   state.user = user;
@@ -147,6 +263,9 @@ authApi.onChange(user => {
       `<strong>${escapeHtml(user.email)}</strong> <span class="role-pill role-${user.role}">${label}</span>`;
     $("auth-signin").style.display = "none";
     $("auth-signout").style.display = "";
+
+    // Welcome Back card: remember when this person last visited
+    if (!wasSignedIn) startWelcomeBack(user.email);
 
     // Welcome pulse — fire once per session on first sign-in
     if (!wasSignedIn && !_hasShownWelcomePulse) {
@@ -159,6 +278,7 @@ authApi.onChange(user => {
     $("auth-signin").style.display = "";
     $("auth-signout").style.display = "none";
     _hasShownWelcomePulse = false; // Reset for next sign-in
+    _welcome = null;
   }
 
   document.body.classList.toggle("is-signed-in", !!user);
@@ -274,6 +394,7 @@ document.querySelectorAll(".tab").forEach(t => {
 // MASTER RENDER
 // ===================================================================
 function renderAll() {
+  try { renderWelcomeBack(); } catch (e) { console.warn("Welcome card skipped:", e); }
   renderMyStanding();
   renderRollCallTab();
   renderMeetingsTab();
@@ -410,9 +531,9 @@ function renderMyNoShowsList(myNoShows, myFines) {
           }
 
           return `
-            <div style="padding: 12px 14px; background: white; border: 1px solid rgba(170,151,103,0.3); border-left: 3px solid var(--crimson); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start;">
+            <div style="padding: 12px 14px; background: white; border: 1px solid rgba(170,151,103,0.3); background-image: linear-gradient(color-mix(in srgb, var(--crimson) 7%, transparent), color-mix(in srgb, var(--crimson) 7%, transparent)); border-radius: 16px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; border-radius: 14px;">
               <div style="flex: 1; min-width: 200px;">
-                <div style="font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 1px; color: var(--crimson); text-transform: uppercase;">
+                <div style="font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 0.5px; color: var(--crimson); text-transform: uppercase;">
                   ${sequence} No-Show &middot; ${escapeHtml(consequenceLabel)}
                 </div>
                 <div style="font-family: Georgia, serif; font-size: 13px; color: var(--slate); margin-top: 4px;">
@@ -420,13 +541,13 @@ function renderMyNoShowsList(myNoShows, myFines) {
                 </div>
                 ${n.reason ? `<div style="font-family: Georgia, serif; font-size: 11px; color: var(--knight-steel); margin-top: 3px; font-style: italic;">${escapeHtml(noShowReasonLabel(n.reason))}</div>` : ""}
                 ${n.appealed && n.appealStatus !== "pending" && n.appealResolverNote ? `
-                  <div style="margin-top: 6px; padding: 6px 10px; background: var(--light-gold); font-family: Georgia, serif; font-size: 11px; font-style: italic;">
+                  <div style="margin-top: 6px; padding: 6px 10px; background: var(--light-gold); font-family: Georgia, serif; font-size: 11px; font-style: italic; border-radius: 14px;">
                     <strong style="font-style: normal; color: var(--garnet);">Sgt note:</strong> ${escapeHtml(n.appealResolverNote)}
                   </div>` : ""}
               </div>
               <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
                 ${appealStatus ? `
-                  <span style="background: ${n.appealStatus === "overturned" ? "var(--garnet)" : "var(--knight-steel)"}; color: white; padding: 3px 8px; font-family: Arial; font-size: 9px; font-weight: bold; letter-spacing: 1.5px;">
+                  <span style="background: ${n.appealStatus === "overturned" ? "var(--garnet)" : "var(--knight-steel)"}; color: white; padding: 3px 8px; font-family: Arial; font-size: 9px; font-weight: bold; letter-spacing: 0.8px;">
                     ${escapeHtml(appealStatus)}
                   </span>
                 ` : ""}
@@ -477,12 +598,12 @@ function renderRollCallTab() {
         <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 6px;">
           ${escapeHtml(fmtDateLong(openNow.date))} &middot; ${fmtTime(openNow.startTime)}${openNow.location ? " &middot; " + escapeHtml(openNow.location) : ""}
         </div>
-        <div style="font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-ink); margin-top: 14px; font-weight: bold;">
+        <div style="font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--gold-ink); margin-top: 14px; font-weight: bold;">
           Window closes ${closesIn}
         </div>
 
         ${alreadyMarked ? `
-          <div style="margin-top: 24px; padding: 18px; background: var(--light-gold); border-left: 3px solid var(--garnet);">
+          <div style="margin-top: 24px; padding: 18px; background: var(--light-gold); background-image: linear-gradient(color-mix(in srgb, var(--garnet) 7%, transparent), color-mix(in srgb, var(--garnet) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
             <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; color: var(--garnet); font-weight: 600;">
               ✓ You're checked in
             </div>
@@ -542,8 +663,8 @@ function renderRollCallTab() {
           <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 6px;">
             ${escapeHtml(fmtDateLong(upcoming.date))} &middot; ${fmtTime(upcoming.startTime)}${upcoming.location ? " &middot; " + escapeHtml(upcoming.location) : ""}
           </div>
-          <div style="margin-top: 18px; padding: 14px; background: var(--light-gold); border-left: 3px solid var(--true-gold);">
-            <div style="font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--garnet); font-weight: bold;">
+          <div style="margin-top: 18px; padding: 14px; background: var(--light-gold); background-image: linear-gradient(color-mix(in srgb, var(--true-gold) 7%, transparent), color-mix(in srgb, var(--true-gold) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
+            <div style="font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--garnet); font-weight: bold;">
               Roll call opens ${opensIn}
             </div>
             <div style="font-family: Georgia, serif; font-size: 13px; font-style: italic; color: var(--slate); margin-top: 4px;">
@@ -1127,7 +1248,7 @@ function renderCreateMeetingFormShell() {
       <label for="mtg-location">Location</label>
       <input type="text" id="mtg-location" placeholder="Chapter house living room" autocomplete="off">
 
-      <div id="mtg-mandatory-row" style="display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 12px 14px; background: var(--light-gold); border-left: 3px solid var(--burgundy);">
+      <div id="mtg-mandatory-row" style="display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 12px 14px; background: var(--light-gold); background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
         <input type="checkbox" id="mtg-mandatory" style="width: auto; margin: 0;">
         <label for="mtg-mandatory" id="mtg-mandatory-label" style="margin: 0; cursor: pointer;">
           Mandatory Meeting
@@ -1155,13 +1276,13 @@ function updateMandatoryCapHint() {
   if (mandFull) {
     cb.disabled = true;
     cb.checked = false;
-    row.style.borderLeft = "3px solid var(--knight-steel)";
+    row.style.opacity = "0.7"; // cap reached: dimmed instead of a side bar
     lbl.style.cursor = "not-allowed";
     lbl.style.color = "var(--knight-steel)";
     hint.textContent = `Bylaws limit mandatory meetings to 4 per quarter. ${formatQuarter(todayQ)} already has 4.`;
   } else {
     cb.disabled = false;
-    row.style.borderLeft = "3px solid var(--burgundy)";
+    row.style.opacity = "";
     lbl.style.cursor = "pointer";
     lbl.style.color = "";
     const remaining = 4 - mandCount;
@@ -1285,20 +1406,20 @@ function renderMeetingRow(m, isExec) {
 
   let timingBadge;
   if (isOpen) {
-    timingBadge = `<span style="background: var(--crimson); color: white; padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 1px;">QR OPEN — closes ${relativeTime(w.closes)}</span>`;
+    timingBadge = `<span style="background: var(--crimson); color: white; padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border-radius: 14px;">QR OPEN — closes ${relativeTime(w.closes)}</span>`;
   } else if (isFuture) {
-    timingBadge = `<span style="background: var(--khaki); color: var(--burgundy); padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 1px;">${relativeTime(w.start).toUpperCase()}</span>`;
+    timingBadge = `<span style="background: var(--khaki); color: var(--burgundy); padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border-radius: 14px;">${relativeTime(w.start).toUpperCase()}</span>`;
   } else {
-    timingBadge = `<span style="background: var(--knight-steel); color: white; padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 1px;">PAST</span>`;
+    timingBadge = `<span style="background: var(--knight-steel); color: white; padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border-radius: 14px;">PAST</span>`;
   }
 
   return `
-    <div class="event-row" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: white; border: 1px solid rgba(170,151,103,0.3); ${m.mandatory ? "border-left: 3px solid var(--burgundy);" : ""} gap: 12px; flex-wrap: wrap;">
+    <div class="event-row" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: white; border: 1px solid rgba(170,151,103,0.3); border-radius: 14px; ${m.mandatory ? "background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px;" : ""} gap: 12px; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 220px;">
         <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--garnet);">
-          ${escapeHtml(m.title)} ${m.mandatory ? `<span style="font-family: Arial; font-size: 9px; letter-spacing: 1.5px; color: var(--burgundy); margin-left: 6px;">⚑ MANDATORY</span>` : ""}
+          ${escapeHtml(m.title)} ${m.mandatory ? `<span style="font-family: Arial; font-size: 9px; letter-spacing: 0.8px; color: var(--burgundy); margin-left: 6px;">⚑ MANDATORY</span>` : ""}
         </div>
-        <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 1px; margin-top: 4px;">
+        <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.5px; margin-top: 4px;">
           ${escapeHtml(fmtDate(m.date))} &middot; ${fmtTime(m.startTime)}–${fmtTime(m.endTime)}${m.location ? " &middot; " + escapeHtml(m.location) : ""}
         </div>
         <div style="margin-top: 6px;">
@@ -1306,7 +1427,7 @@ function renderMeetingRow(m, isExec) {
         </div>
       </div>
       <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <span style="background: var(--garnet); color: white; padding: 6px 12px; font-family: Arial; font-size: 11px; font-weight: bold; letter-spacing: 1px;">
+        <span style="background: var(--garnet); color: white; padding: 6px 12px; font-family: Arial; font-size: 11px; font-weight: bold; letter-spacing: 0.5px; border-radius: 14px;">
           ${attendees.length} present
         </span>
         <button class="btn btn-ghost btn-small" data-qr="${m.id}">QR</button>
@@ -1364,14 +1485,14 @@ function openRollSheet(meetingId) {
   $("roll-sheet-present").innerHTML = present.length
     ? present.map(b => `<div style="padding: 8px 14px; border-bottom: 1px solid var(--light-gold); font-family: Georgia, serif; font-size: 13px; display: flex; justify-content: space-between;">
         <span>${escapeHtml(b.firstName + " " + b.lastName)}</span>
-        <span style="font-family: Arial; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--garnet); font-weight: bold;">PRESENT</span>
+        <span style="font-family: Arial; font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--garnet); font-weight: bold;">PRESENT</span>
       </div>`).join("")
     : `<div style="padding: 12px; font-family: Georgia, serif; font-style: italic; color: var(--gold-ink);">No one has marked themselves present yet.</div>`;
 
   $("roll-sheet-absent").innerHTML = absent.length
     ? absent.map(b => `<div style="padding: 8px 14px; border-bottom: 1px solid var(--light-gold); font-family: Georgia, serif; font-size: 13px; display: flex; justify-content: space-between;">
         <span>${escapeHtml(b.firstName + " " + b.lastName)}</span>
-        <span style="font-family: Arial; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--memphis-brick);">${b.status === "New Member" ? "NM" : ""} ${qrWindow(m).isPast ? "ABSENT" : "—"}</span>
+        <span style="font-family: Arial; font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--memphis-brick);">${b.status === "New Member" ? "NM" : ""} ${qrWindow(m).isPast ? "ABSENT" : "—"}</span>
       </div>`).join("")
     : `<div style="padding: 12px; font-family: Georgia, serif; font-style: italic; color: var(--gold-ink);">Everyone eligible has marked present.</div>`;
 
@@ -1649,7 +1770,7 @@ function updateAbsenceMeetingDropdown() {
     if (tooSoon.length > 0) {
       const secEmail = state.settings.secretaryEmail || SECRETARY_EMAIL;
       hint.style.display = "block";
-      hint.style.cssText = "margin-top: 8px; padding: 10px 14px; background: var(--khaki); border-left: 3px solid var(--burgundy); font-family: Georgia, serif; font-size: 12px; font-style: italic;";
+      hint.style.cssText = "margin-top: 8px; padding: 10px 14px; background: var(--khaki); background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px; font-family: Georgia, serif; font-size: 12px; font-style: italic;";
       const list = tooSoon.map(m => `<strong>${escapeHtml(m.title)}</strong> (${fmtDate(m.date)} at ${fmtTime(m.startTime)})`).join(", ");
       hint.innerHTML = `${tooSoon.length} meeting${tooSoon.length === 1 ? " is" : "s are"} less than 48 hours away (${list}). For those, contact the secretary directly: <a href="mailto:${secEmail}" style="color: var(--garnet); font-weight: bold;">${secEmail}</a>`;
     } else {
@@ -1674,7 +1795,7 @@ function updateAbsenceFormGuards() {
     formBody.style.display = "none";
     const secEmail = state.settings.secretaryEmail || SECRETARY_EMAIL;
     tooSoonMsg.style.display = "block";
-    tooSoonMsg.style.cssText = "display: block; margin-top: 18px; padding: 18px; background: var(--khaki); border-left: 3px solid var(--burgundy);";
+    tooSoonMsg.style.cssText = "display: block; margin-top: 18px; padding: 18px; background: var(--khaki); background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px;";
     tooSoonMsg.innerHTML = `
       <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; color: var(--burgundy); font-weight: 600;">
         No meetings eligible for absence requests
@@ -1692,7 +1813,7 @@ function updateAbsenceFormGuards() {
   // Mandatory warning
   if (meeting && meeting.mandatory) {
     mandWarn.style.display = "block";
-    mandWarn.style.cssText = "display: block; margin-top: 14px; padding: 12px 14px; background: var(--light-gold); border-left: 3px solid var(--burgundy); font-family: Georgia, serif; font-size: 13px; line-height: 1.5;";
+    mandWarn.style.cssText = "display: block; margin-top: 14px; padding: 12px 14px; background: var(--light-gold); background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px; font-family: Georgia, serif; font-size: 13px; line-height: 1.5;";
     mandWarn.innerHTML = `
       <strong style="color: var(--burgundy);">⚑ This is a mandatory meeting.</strong>
       Bylaws require attendance unless explicitly excused by exec. You can submit, but it'll likely be denied unless you've already gotten verbal approval from a President / IVP / Secretary.`;
@@ -1813,7 +1934,7 @@ function renderMyRequestRow(r) {
                      : "PENDING";
 
   return `
-    <div style="padding: 14px 18px; background: white; border: 1px solid rgba(170,151,103,0.3); border-left: 3px solid ${statusColor};">
+    <div style="padding: 14px 18px; background: white; border: 1px solid rgba(170,151,103,0.3); background-image: linear-gradient(color-mix(in srgb, ${statusColor} 7%, transparent), color-mix(in srgb, ${statusColor} 7%, transparent)); border-radius: 16px;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 220px;">
           <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 17px; font-weight: 600; color: var(--garnet);">
@@ -1826,16 +1947,16 @@ function renderMyRequestRow(r) {
             ${escapeHtml(r.description)}
           </div>
           ${r.reviewerNote ? `
-            <div style="margin-top: 8px; padding: 8px 12px; background: var(--light-gold); font-family: Georgia, serif; font-size: 12px; font-style: italic;">
+            <div style="margin-top: 8px; padding: 8px 12px; background: var(--light-gold); font-family: Georgia, serif; font-size: 12px; font-style: italic; border-radius: 14px;">
               <strong style="font-style: normal; color: var(--garnet);">Approver note:</strong> ${escapeHtml(r.reviewerNote)}
             </div>
           ` : ""}
-          <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 8px; letter-spacing: 1px;">
+          <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 8px; letter-spacing: 0.5px;">
             Submitted ${submittedAgo}
           </div>
         </div>
         <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-          <span style="background: ${statusColor}; color: white; padding: 4px 10px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 1.5px;">
+          <span style="background: ${statusColor}; color: white; padding: 4px 10px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 0.8px;">
             ${statusLabel}
           </span>
           ${r.status === "pending"
@@ -1912,22 +2033,22 @@ function renderApproverCard(r) {
   const meetingAway = meetingTime ? relativeTime(meetingTime) : "—";
 
   return `
-    <div style="padding: 18px 20px; background: white; border: 1px solid rgba(170,151,103,0.3); ${r.mandatory ? "border-left: 3px solid var(--burgundy);" : "border-left: 3px solid var(--true-gold);"}">
+    <div style="padding: 18px 20px; background: white; border: 1px solid rgba(170,151,103,0.3); border-radius: 14px; ${r.mandatory ? "background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px;" : "background-image: linear-gradient(color-mix(in srgb, var(--true-gold) 7%, transparent), color-mix(in srgb, var(--true-gold) 7%, transparent)); border-radius: 16px;"}">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
         <div style="flex: 1; min-width: 200px;">
           <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--garnet);">
-            ${escapeHtml(r.brotherName)} ${r.mandatory ? `<span style="font-family: Arial; font-size: 10px; letter-spacing: 1.5px; color: var(--burgundy); margin-left: 6px;">⚑ MANDATORY MTG</span>` : ""}
+            ${escapeHtml(r.brotherName)} ${r.mandatory ? `<span style="font-family: Arial; font-size: 10px; letter-spacing: 0.8px; color: var(--burgundy); margin-left: 6px;">⚑ MANDATORY MTG</span>` : ""}
           </div>
-          <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.5px; margin-top: 3px;">
+          <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.3px; margin-top: 3px;">
             ${escapeHtml(r.meetingTitle || "Meeting")} &middot; ${escapeHtml(fmtDate(r.meetingDate))} ${fmtTime(r.meetingStartTime)} (${meetingAway})
           </div>
         </div>
-        <span style="background: var(--khaki); color: var(--burgundy); padding: 3px 9px; font-family: Arial; font-size: 9px; font-weight: bold; letter-spacing: 1.5px;">
+        <span style="background: var(--khaki); color: var(--burgundy); padding: 3px 9px; font-family: Arial; font-size: 9px; font-weight: bold; letter-spacing: 0.8px; border-radius: 14px;">
           ${escapeHtml((r.reason || "OTHER").toUpperCase())}
         </span>
       </div>
 
-      <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 12px; line-height: 1.55; padding: 12px 14px; background: var(--paper); border-left: 2px solid var(--key-gold);">
+      <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 12px; line-height: 1.55; padding: 12px 14px; background: var(--paper); background-image: linear-gradient(color-mix(in srgb, var(--key-gold) 7%, transparent), color-mix(in srgb, var(--key-gold) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
         ${escapeHtml(r.description)}
       </div>
 
@@ -1939,7 +2060,7 @@ function renderApproverCard(r) {
       <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
         <button class="btn" data-approve="${r.id}">Approve</button>
         <button class="btn btn-danger" data-deny="${r.id}">Deny</button>
-        <span style="flex: 1; text-align: right; font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
+        <span style="flex: 1; text-align: right; font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 0.5px;">
           Submitted ${submittedAgo} by ${escapeHtml(r.email || "")}
         </span>
       </div>
@@ -1950,14 +2071,14 @@ function renderReviewedRow(r) {
   const color = r.status === "approved" ? "var(--garnet)" : "var(--memphis-brick)";
   const reviewerShort = (r.reviewedBy || "").split("@")[0];
   return `
-    <div style="padding: 10px 14px; background: white; border-left: 3px solid ${color}; font-family: Georgia, serif; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap;">
+    <div style="padding: 10px 14px; background: white; background-image: linear-gradient(color-mix(in srgb, ${color} 7%, transparent), color-mix(in srgb, ${color} 7%, transparent)); border-radius: 16px; font-family: Georgia, serif; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap;">
       <div>
         <strong style="color: ${color};">${(r.status || "").toUpperCase()}</strong>
         &middot; ${escapeHtml(r.brotherName)}
         &middot; ${escapeHtml(r.meetingTitle || "Meeting")}
         &middot; <span style="color: var(--knight-steel); font-size: 12px;">${escapeHtml(REASON_LABELS[r.reason] || r.reason)}</span>
       </div>
-      <span style="font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
+      <span style="font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 0.5px;">
         by ${escapeHtml(reviewerShort)} ${r.reviewedAt ? relativeTime(r.reviewedAt) : ""}
       </span>
     </div>`;
@@ -2043,13 +2164,13 @@ function renderAppealCard(n) {
   const submittedAgo = n.appealedAt ? relativeTime(n.appealedAt) : "—";
   const sequence = ["1st", "2nd", "3rd", "4th+"][Math.min(n.count - 1, 3)] || "";
   return `
-    <div style="padding: 18px 20px; background: white; border: 1px solid rgba(170,151,103,0.3); border-left: 3px solid var(--dagger);">
+    <div style="padding: 18px 20px; background: white; border: 1px solid rgba(170,151,103,0.3); background-image: linear-gradient(color-mix(in srgb, var(--dagger) 7%, transparent), color-mix(in srgb, var(--dagger) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
         <div style="flex: 1; min-width: 200px;">
           <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--dagger);">
             ${escapeHtml(n.brotherName)}
           </div>
-          <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.5px; margin-top: 3px;">
+          <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.3px; margin-top: 3px;">
             ${sequence} no-show &middot; ${escapeHtml(n.meetingTitle || "Meeting")} &middot; ${escapeHtml(fmtDate(n.meetingDate || ""))}
           </div>
           <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 3px; font-style: italic;">
@@ -2058,8 +2179,8 @@ function renderAppealCard(n) {
         </div>
       </div>
 
-      <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 12px; line-height: 1.55; padding: 12px 14px; background: var(--paper); border-left: 2px solid var(--key-gold);">
-        <div style="font-family: Arial, sans-serif; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--garnet); font-weight: bold; margin-bottom: 4px;">Appeal reason</div>
+      <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 12px; line-height: 1.55; padding: 12px 14px; background: var(--paper); background-image: linear-gradient(color-mix(in srgb, var(--key-gold) 7%, transparent), color-mix(in srgb, var(--key-gold) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
+        <div style="font-family: Arial, sans-serif; font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--garnet); font-weight: bold; margin-bottom: 4px;">Appeal reason</div>
         ${escapeHtml(n.appealReason || "")}
       </div>
 
@@ -2071,7 +2192,7 @@ function renderAppealCard(n) {
       <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
         <button class="btn" data-overturn="${n.id}">Overturn (remove no-show)</button>
         <button class="btn btn-danger" data-uphold="${n.id}">Uphold (no-show stands)</button>
-        <span style="flex: 1; text-align: right; font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
+        <span style="flex: 1; text-align: right; font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 0.5px;">
           Appealed ${submittedAgo}
         </span>
       </div>
@@ -2082,13 +2203,13 @@ function renderAppealReviewedRow(n) {
   const color = n.appealStatus === "overturned" ? "var(--garnet)" : "var(--memphis-brick)";
   const reviewerShort = (n.appealResolvedBy || "").split("@")[0];
   return `
-    <div style="padding: 10px 14px; background: white; border-left: 3px solid ${color}; font-family: Georgia, serif; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap;">
+    <div style="padding: 10px 14px; background: white; background-image: linear-gradient(color-mix(in srgb, ${color} 7%, transparent), color-mix(in srgb, ${color} 7%, transparent)); border-radius: 16px; font-family: Georgia, serif; font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap;">
       <div>
         <strong style="color: ${color};">${(n.appealStatus || "").toUpperCase()}</strong>
         &middot; ${escapeHtml(n.brotherName)}
         &middot; ${escapeHtml(n.meetingTitle || "Meeting")}
       </div>
-      <span style="font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
+      <span style="font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 0.5px;">
         by ${escapeHtml(reviewerShort)} ${n.appealResolvedAt ? relativeTime(n.appealResolvedAt) : ""}
       </span>
     </div>`;
@@ -2337,7 +2458,7 @@ function renderPendingAcksSection() {
 
   if (pending.length === 0) {
     return `
-      <div style="margin-top: 14px; padding: 14px 18px; background: var(--light-gold); border-left: 3px solid var(--garnet);">
+      <div style="margin-top: 14px; padding: 14px 18px; background: var(--light-gold); background-image: linear-gradient(color-mix(in srgb, var(--garnet) 7%, transparent), color-mix(in srgb, var(--garnet) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
         <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16px; font-weight: 600; color: var(--garnet);">
           ✓ All notifications acknowledged
         </div>
@@ -2374,19 +2495,19 @@ function renderPendingAcksSection() {
           const stale = ageHours >= 48;
           const recipientShort = (n.recipientEmail || "").split("@")[0];
           return `
-            <div style="padding: 10px 14px; background: white; border-left: 3px solid ${severityColors[n.severity] || "var(--garnet)"}; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div style="padding: 10px 14px; background: white; background-image: linear-gradient(color-mix(in srgb, ${severityColors[n.severity] || "var(--garnet)"} 7%, transparent), color-mix(in srgb, ${severityColors[n.severity] || "var(--garnet)"} 7%, transparent)); border-radius: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
               <div style="flex: 1; min-width: 200px;">
                 <div style="font-family: Georgia, serif; font-size: 13px; line-height: 1.4;">
                   <strong style="color: ${severityColors[n.severity] || "var(--garnet)"};">${escapeHtml(n.title || "Notification")}</strong>
                   <span style="color: var(--knight-steel); font-size: 11px; margin-left: 6px;">→ ${escapeHtml(recipientShort)}</span>
                 </div>
               </div>
-              <span style="font-family: Arial; font-size: 9px; letter-spacing: 1.5px; color: ${stale ? "var(--memphis-brick)" : "var(--knight-steel)"}; ${stale ? "font-weight: bold;" : ""} text-transform: uppercase;">
+              <span style="font-family: Arial; font-size: 9px; letter-spacing: 0.8px; color: ${stale ? "var(--memphis-brick)" : "var(--knight-steel)"}; ${stale ? "font-weight: bold;" : ""} text-transform: uppercase;">
                 ${ageLabel}${stale ? " • stale" : ""}
               </span>
             </div>`;
         }).join("")}
-        ${pending.length > 25 ? `<div style="font-family: Arial; font-size: 11px; color: var(--knight-steel); text-align: center; padding: 8px; letter-spacing: 1px;">+ ${pending.length - 25} more</div>` : ""}
+        ${pending.length > 25 ? `<div style="font-family: Arial; font-size: 11px; color: var(--knight-steel); text-align: center; padding: 8px; letter-spacing: 0.5px;">+ ${pending.length - 25} more</div>` : ""}
       </div>
     </div>`;
 }
@@ -2400,7 +2521,7 @@ function renderWatchlistSection() {
   }
   if (watchlist.length === 0) {
     return `
-      <div style="margin-top: 14px; padding: 18px; background: var(--light-gold); border-left: 3px solid var(--garnet);">
+      <div style="margin-top: 14px; padding: 18px; background: var(--light-gold); background-image: linear-gradient(color-mix(in srgb, var(--garnet) 7%, transparent), color-mix(in srgb, var(--garnet) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
         <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--garnet);">
           ✓ No brothers below 50% this quarter
         </div>
@@ -2417,11 +2538,11 @@ function renderWatchlistSection() {
       </div>
       <div style="display: flex; flex-direction: column; gap: 8px;">
         ${watchlist.map(p => `
-          <div style="padding: 12px 14px; background: white; border-left: 3px solid var(--dagger); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          <div style="padding: 12px 14px; background: white; background-image: linear-gradient(color-mix(in srgb, var(--dagger) 7%, transparent), color-mix(in srgb, var(--dagger) 7%, transparent)); border-radius: 16px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-radius: 14px;">
             <div style="flex: 1; min-width: 200px;">
               <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16px; font-weight: 600; color: var(--dagger);">
                 ${escapeHtml(p.brother.firstName + " " + p.brother.lastName)}
-                <span style="font-family: Arial; font-size: 9px; color: var(--knight-steel); letter-spacing: 1.5px; margin-left: 6px;">${escapeHtml((p.brother.status || "").toUpperCase())}</span>
+                <span style="font-family: Arial; font-size: 9px; color: var(--knight-steel); letter-spacing: 0.8px; margin-left: 6px;">${escapeHtml((p.brother.status || "").toUpperCase())}</span>
               </div>
               <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); margin-top: 3px;">
                 ${p.totalAttended}/${p.totalEvents} attended &middot;
@@ -2433,7 +2554,7 @@ function renderWatchlistSection() {
               <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 700; color: var(--memphis-brick);">
                 ${Math.round(p.ratio * 100)}%
               </div>
-              <div style="font-family: Arial; font-size: 9px; letter-spacing: 1.5px; color: var(--memphis-brick); text-transform: uppercase; font-weight: bold;">
+              <div style="font-family: Arial; font-size: 9px; letter-spacing: 0.8px; color: var(--memphis-brick); text-transform: uppercase; font-weight: bold;">
                 Below 50%
               </div>
             </div>
@@ -2602,14 +2723,14 @@ function renderFineRow(f, mode) {
   const paidAgo = f.paidAt ? relativeTime(f.paidAt) : "";
 
   return `
-    <div style="padding: 10px 14px; background: white; border-left: 3px solid ${mode === "pending" ? "var(--memphis-brick)" : "var(--garnet)"}; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+    <div style="padding: 10px 14px; background: white; background-image: linear-gradient(color-mix(in srgb, ${mode === "pending" ? "var(--memphis-brick)" : "var(--garnet)"} 7%, transparent), color-mix(in srgb, ${mode === "pending" ? "var(--memphis-brick)" : "var(--garnet)"} 7%, transparent)); border-radius: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 200px;">
         <div style="font-family: Georgia, serif; font-size: 14px;">
           <strong>${escapeHtml(f.brotherName)}</strong>
           &middot; <span style="color: ${mode === "pending" ? "var(--memphis-brick)" : "var(--garnet)"}; font-weight: bold;">$${f.amount}</span>
           &middot; <span style="color: var(--slate); font-size: 12px;">${escapeHtml(f.reason || "")}</span>
         </div>
-        <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 3px; letter-spacing: 0.5px;">
+        <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 3px; letter-spacing: 0.3px;">
           ${escapeHtml(f.meetingTitle || "")} &middot; ${escapeHtml(fmtDate(f.meetingDate || ""))} &middot; created ${ago}
           ${mode === "paid" ? ` &middot; paid ${paidAgo}` : ""}
         </div>
