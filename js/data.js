@@ -46,7 +46,8 @@ export const EXEC_EMAILS = new Set([
   "uclapikes@gmail.com",
   "pthomsak@gmail.com",          // President
   "ryansalridge@gmail.com",      // Internal VP
-  "davidbnavarrojr@gmail.com",   // Secretary
+  "arteagamike19@gmail.com",     // Secretary (Mike Arteaga)
+  "davidbnavarrojr@gmail.com",   // Former Secretary · app maintainer
   "david.mescobedo20@gmail.com", // Treasurer
   "ryderrios.rio@gmail.com",     // Health & Safety
   "rileyo1294@gmail.com",        // External VP
@@ -59,12 +60,13 @@ export const APPROVER_EMAILS = new Set([
   "uclapikes@gmail.com",
   "pthomsak@gmail.com",
   "ryansalridge@gmail.com",
-  "davidbnavarrojr@gmail.com",
+  "arteagamike19@gmail.com",     // Secretary
+  "davidbnavarrojr@gmail.com",   // Former Secretary
 ]);
 
 export const SGT_AT_ARMS_EMAIL = "nikkranjith21@gmail.com";
 export const TREASURER_EMAIL   = "david.mescobedo20@gmail.com";
-export const SECRETARY_EMAIL   = "davidbnavarrojr@gmail.com";
+export const SECRETARY_EMAIL   = "arteagamike19@gmail.com";
 export const PRESIDENT_EMAIL   = "pthomsak@gmail.com";
 export const IVP_EMAIL         = "ryansalridge@gmail.com";
 
