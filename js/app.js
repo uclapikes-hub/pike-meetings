@@ -656,24 +656,11 @@ function renderRollCallTab() {
     if (upcoming) {
       const w = qrWindow(upcoming);
       const opensIn = relativeTime(w.opens);
-      placeholder.innerHTML = `
-        <div class="card">
-          <div class="card-sub">Next Meeting</div>
-          <div class="card-title">${escapeHtml(upcoming.title)}</div>
-          <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 6px;">
-            ${escapeHtml(fmtDateLong(upcoming.date))} &middot; ${fmtTime(upcoming.startTime)}${upcoming.location ? " &middot; " + escapeHtml(upcoming.location) : ""}
-          </div>
-          <div style="margin-top: 18px; padding: 14px; background: var(--light-gold); background-image: linear-gradient(color-mix(in srgb, var(--true-gold) 7%, transparent), color-mix(in srgb, var(--true-gold) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
-            <div style="font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--garnet); font-weight: bold;">
-              Roll call opens ${opensIn}
-            </div>
-            <div style="font-family: Georgia, serif; font-size: 13px; font-style: italic; color: var(--slate); margin-top: 4px;">
-              The "Mark Me Present" button will appear here automatically when the window opens (15 min before start).
-            </div>
-          </div>
-          ${upcoming.mandatory ? `<div style="margin-top: 12px; font-family: Georgia, serif; font-size: 12px; font-style: italic; color: var(--burgundy);">⚑ Mandatory meeting</div>` : ""}
-        </div>
-      `;
+      const html = renderNextMeetingCard(upcoming, opensIn);
+      // Skip redraw when nothing changed so the sun/moon animation doesn't restart every 30s
+      if (placeholder.dataset.html === html && placeholder.querySelector(".nm-card")) return;
+      placeholder.dataset.html = html;
+      placeholder.innerHTML = html;
       return;
     }
 
@@ -695,6 +682,63 @@ function renderRollCallTab() {
         <h3>Sign in to take roll</h3>
         <p style="margin-top: 12px;">When a chapter meeting is open for roll call, the "Mark Me Present" button will appear here.</p>
       </div>
+    </div>`;
+}
+
+// ===================================================================
+// NEXT MEETING CARD (clock face + week strip)
+// ===================================================================
+function renderNextMeetingCard(m, opensIn) {
+  const start = combineLocalDateTime(m.date, m.startTime);
+  const hour = start.getHours();
+  const evening = hour >= 17 || hour < 6;
+  const timeStr = fmtTime(m.startTime);                 // e.g. "7:00 PM"
+  const [clock, ampm] = timeStr.split(" ");
+  const dayStr = start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+
+  // Week strip: Sunday-to-Saturday week containing the meeting
+  const weekStart = new Date(start); weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  const todayKey = new Date().toDateString();
+  const pad = n => String(n).padStart(2, "0");
+  const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const days = [...Array(7)].map((_, i) => {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
+    const mtgs = state.meetings.filter(x => x.date === keyOf(d));
+    return {
+      num: d.getDate(),
+      name: d.toLocaleDateString(undefined, { weekday: "short" }).slice(0, 2),
+      active: keyOf(d) === m.date,
+      today: d.toDateString() === todayKey,
+      dot: mtgs.length ? (mtgs.some(x => x.mandatory) ? "mand" : "on") : "",
+    };
+  });
+
+  const icon = evening
+    ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`
+    : `<span class="nm-sun"><span class="nm-sun-core"></span><span class="nm-sun-glow"></span></span>`;
+
+  return `
+    <div class="card nm-card${m.mandatory ? " is-mandatory" : ""}">
+      <div class="nm-icon ${evening ? "is-moon" : "is-sun"}" title="${evening ? "Evening meeting" : "Daytime meeting"}">${icon}</div>
+      <div class="card-sub">Next Meeting${m.mandatory ? " &middot; Mandatory" : ""}</div>
+      <div class="card-title">${escapeHtml(m.title)}</div>
+      <div class="nm-clock">
+        <span class="nm-time">${escapeHtml(clock)}</span><span class="nm-ampm">${escapeHtml(ampm || "")}</span>
+      </div>
+      <div class="nm-day">${escapeHtml(dayStr)}${m.location ? " &middot; " + escapeHtml(m.location) : ""}</div>
+
+      <div class="nm-week" role="list" aria-label="Meeting week">
+        ${days.map(d => `
+          <div class="nm-dayitem${d.active ? " is-active" : ""}${d.today ? " is-today" : ""}" role="listitem">
+            <span class="nm-num">${d.num}</span>
+            <span class="nm-name">${escapeHtml(d.name)}</span>
+            <span class="nm-dot ${d.dot}"></span>
+          </div>`).join("")}
+      </div>
+
+      <div class="nm-pill">Roll call opens ${escapeHtml(opensIn)}</div>
+      <div class="nm-note">The "Mark Me Present" button appears here automatically 15 minutes before start.</div>
     </div>`;
 }
 

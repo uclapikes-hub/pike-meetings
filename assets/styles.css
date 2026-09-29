@@ -1445,3 +1445,79 @@ table { border-radius: var(--r-md); overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .welcome-card, .brother-search:focus-within::before, .pike-spinner { animation: none; }
 }
+
+/* ----- Next Meeting card: clock face + week strip ----- */
+.nm-card {
+  position: relative; overflow: hidden;
+  background:
+    radial-gradient(140% 110% at 0% 105%, rgba(235, 229, 219, 0.95) 0%, rgba(255, 255, 255, 0) 60%),
+    radial-gradient(90% 80% at 105% -10%, rgba(170, 151, 103, 0.22) 0%, rgba(255, 255, 255, 0) 60%),
+    var(--surface);
+  transition: transform 0.8s cubic-bezier(0.15, 0.83, 0.66, 1), box-shadow 0.35s var(--ease-soft);
+}
+.nm-card:hover { transform: scale(1.01); }
+.nm-card.is-mandatory {
+  background:
+    radial-gradient(140% 110% at 0% 105%, color-mix(in srgb, var(--garnet) 9%, white) 0%, rgba(255,255,255,0) 60%),
+    radial-gradient(90% 80% at 105% -10%, rgba(170, 151, 103, 0.22) 0%, rgba(255,255,255,0) 60%),
+    var(--surface);
+}
+.nm-icon { position: absolute; top: 22px; right: 24px; width: 34px; height: 34px; transition: transform 0.3s var(--ease-soft); }
+.nm-card:hover .nm-icon { transform: scale(1.12); }
+.nm-icon.is-moon svg { width: 100%; height: 100%; fill: var(--true-gold); filter: drop-shadow(0 2px 6px rgba(170,151,103,0.45)); }
+.nm-sun { position: relative; display: block; width: 100%; height: 100%; }
+.nm-sun-core, .nm-sun-glow { position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(135deg, var(--true-gold), #d9c48a); }
+.nm-sun-glow { animation: nm-shine 2.4s ease-out infinite; }
+@keyframes nm-shine { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.5); opacity: 0; } }
+
+.nm-clock { display: flex; align-items: baseline; gap: 6px; margin-top: 14px; line-height: 1; }
+.nm-time {
+  font-family: 'Cormorant Garamond', Georgia, serif; font-size: 64px; font-weight: 600;
+  color: var(--garnet); letter-spacing: -1px;
+}
+.nm-ampm { font-family: var(--font-label); font-size: 14px; font-weight: bold; letter-spacing: 1.5px; color: var(--gold-ink); }
+.nm-day { font-family: var(--font-body); font-size: 15px; color: var(--slate); margin-top: 8px; }
+
+.nm-week {
+  position: relative; display: flex; justify-content: space-between; gap: 4px;
+  margin-top: 20px; padding: 10px 8px 12px;
+  background: var(--surface-2); border-radius: var(--r-md); box-shadow: var(--inset);
+}
+.nm-week::after {                     /* dashed line the dots sit on */
+  content: ""; position: absolute; left: 28px; right: 28px; bottom: 15px;
+  border-top: 1.5px dashed var(--khaki); z-index: 0;
+}
+.nm-dayitem {
+  position: relative; z-index: 1; flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 0 16px; border-radius: 14px;
+  transition: background 0.25s var(--ease-soft);
+}
+.nm-dayitem:hover { background: rgba(255,255,255,0.8); }
+.nm-num  { font-family: var(--font-body); font-size: 17px; font-weight: 600; color: var(--slate); }
+.nm-name { font-family: var(--font-label); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold-ink); }
+.nm-dayitem.is-today .nm-num { color: var(--garnet); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+.nm-dayitem.is-active { background: var(--surface); box-shadow: var(--raised-sm); }
+.nm-dayitem.is-active .nm-num { color: var(--garnet); }
+.nm-dot {
+  position: absolute; bottom: 1px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--khaki); box-shadow: 0 0 0 3px var(--surface-2);
+}
+.nm-dot.on   { background: var(--true-gold); }
+.nm-dot.mand { background: var(--garnet); }
+.nm-dayitem.is-active .nm-dot { box-shadow: 0 0 0 3px var(--surface-2), 0 0 10px rgba(121,36,47,0.35); }
+
+.nm-pill {
+  display: inline-block; margin-top: 18px; padding: 9px 16px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--garnet) 8%, white);
+  font-family: var(--font-label); font-size: 11px; font-weight: bold; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--garnet);
+}
+.nm-note { font-family: var(--font-body); font-size: 13px; font-style: italic; color: var(--slate); margin-top: 10px; }
+@media (max-width: 600px) {
+  .nm-time { font-size: 52px; }
+  .nm-week { padding: 8px 4px 12px; }
+  .nm-num { font-size: 15px; }
+  .nm-week::after { left: 20px; right: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { .nm-sun-glow { animation: none; } .nm-card:hover { transform: none; } }
