@@ -219,7 +219,6 @@ function renderWelcomeBack() {
   // New Dispatch issue
   const newIssues = ((state.settings && state.settings.dispatch) ? Object.values(state.settings.dispatch) : [])
     .filter(i => i && i.status === "published" && since != null && (i.publishedAt || 0) > since);
-  if (newIssues.length) add("New", "Dispatch issue" + (newIssues.length === 1 ? "" : "s"), newIssues.map(i => i.headline).slice(0, 1).join(""), false);
 
   // Next meeting, always useful
   const next = state.meetings
@@ -3519,7 +3518,7 @@ const DOCK_ICONS = {
   dispatch:   '<path d="M4 4h13a1 1 0 0 1 1 1v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2"/><path d="M8 8h6M8 12h6M8 16h4"/>',
   settings:   '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
 };
-const DOCK_SHORT = { absence: "Absences", rollcall: "Roll Call", checkin: "Check In" };
+const DOCK_SHORT = { dispatch: "Updates", absence: "Absences", rollcall: "Roll Call", checkin: "Check In" };
 function initDock() {
   const tabs = [...document.querySelectorAll(".tabs .tab")];
   if (!tabs.length || document.getElementById("pike-dock")) return;
@@ -3701,15 +3700,15 @@ function renderDispatchPaper(issue) {
   const dateLong = issue.date ? fmtDateLong(issue.date) : "";
   const sec = (title, body) => body ? `<section class="dp-section"><h3 class="dp-kicker">${title}</h3>${body}</section>` : "";
   return `
-  <article class="dispatch-paper${issue.status !== "published" ? " is-draft" : ""}" aria-label="The Iota Pi Dispatch">
+  <article class="dispatch-paper${issue.status !== "published" ? " is-draft" : ""}" aria-label="Chapter Updates">
     ${issue.status !== "published" ? `<div class="dp-draft-flag">Draft · only exec can see this</div>` : ""}
     <div class="dp-masthead">
       <div class="dp-topline"><span>UCLA · Iota Pi Chapter</span><span>Pi Kappa Alpha</span></div>
-      <h2 class="dp-name">The Iota Pi Dispatch</h2>
+      <h2 class="dp-name">Chapter Updates</h2>
       <div class="dp-rule"></div>
       <div class="dp-issueline"><span>${escapeHtml(vol)} · No. ${no}</span><span>${escapeHtml(dateLong)}</span><span>${meeting ? escapeHtml(meeting.title) : "Chapter Edition"}</span></div>
     </div>
-    <h1 class="dp-headline">${escapeHtml(issue.headline || "Untitled issue")}</h1>
+    <h1 class="dp-headline">${escapeHtml(issue.headline || "Untitled update")}</h1>
     ${issue.dek ? `<p class="dp-dek">${escapeHtml(issue.dek)}</p>` : ""}
     <div class="dp-byline">By ${escapeHtml(issue.author || "the Secretary")}</div>
     <div class="dp-body">
@@ -3735,7 +3734,7 @@ function renderDispatchTab() {
 
   if (!state.user) {
     toolbar.innerHTML = ""; editor.innerHTML = ""; _dispatchEditorFor = null; archive.innerHTML = "";
-    const html = `<div class="card dp-empty"><div class="card-title">The Iota Pi Dispatch</div><div class="card-sub">The chapter's weekly recap</div><p>Sign in to read the latest issue.</p></div>`;
+    const html = `<div class="card dp-empty"><div class="card-title">Chapter Updates</div><div class="card-sub">Weekly recaps from chapter</div><p>Sign in to read the latest update.</p></div>`;
     if (_dispatchPaperHtml !== html) { paperWrap.innerHTML = html; _dispatchPaperHtml = html; }
     return;
   }
@@ -3748,12 +3747,12 @@ function renderDispatchTab() {
   // Toolbar
   const tb = `
     <div class="dp-toolbar">
-      ${isExec ? `<button class="btn" type="button" id="dp-new">✎ Write an issue</button>` : ""}
+      ${isExec ? `<button class="btn" type="button" id="dp-new">✎ Write an update</button>` : ""}
       ${current ? `<button class="btn btn-ghost" type="button" id="dp-print">Print / Save PDF</button>
                    <button class="btn btn-ghost" type="button" id="dp-link">Copy link</button>` : ""}
-      ${isExec && current ? `<button class="btn btn-ghost" type="button" id="dp-edit">Edit this issue</button>` : ""}
+      ${isExec && current ? `<button class="btn btn-ghost" type="button" id="dp-edit">Edit this update</button>` : ""}
     </div>
-    ${drafts.length ? `<div class="dp-drafts"><span class="dp-drafts-label">Drafts</span>${drafts.map(d => `<button type="button" class="dp-chip${current && current.id === d.id ? " is-on" : ""}" data-dp-view="${d.id}">${escapeHtml(d.headline || "Untitled")} · ${fmtDateShort(d.date)}</button>`).join("")}</div>` : ""}`;
+    ${drafts.length ? `<div class="dp-drafts"><span class="dp-drafts-label">Your drafts</span>${drafts.map(d => `<button type="button" class="dp-chip${current && current.id === d.id ? " is-on" : ""}" data-dp-view="${d.id}">${escapeHtml(d.headline || "Untitled")} · ${fmtDateShort(d.date)}</button>`).join("")}</div>` : ""}`;
   if (toolbar.dataset.html !== tb) {
     toolbar.dataset.html = tb; toolbar.innerHTML = tb;
     $("dp-new")?.addEventListener("click", () => openDispatchEditor("new"));
@@ -3768,13 +3767,13 @@ function renderDispatchTab() {
 
   // Paper
   const paper = current ? renderDispatchPaper(current)
-    : `<div class="card dp-empty"><div class="card-title">The Iota Pi Dispatch</div><div class="card-sub">The chapter's weekly recap</div>
-       <p>${isExec ? "No issues yet. Write the first one after your next chapter meeting: a short recap, what was decided, announcements and shoutouts. Attendance numbers and upcoming meetings fill in on their own." : "No issues yet. The Secretary will post a recap after chapter."}</p></div>`;
+    : `<div class="card dp-empty"><div class="card-title">Chapter Updates</div><div class="card-sub">Weekly recaps from chapter</div>
+       <p>${isExec ? "No updates yet. Write the first one after your next chapter meeting: a short recap, what was decided, announcements and shoutouts. Attendance numbers and upcoming meetings fill in on their own." : "No updates yet. The Secretary will post a recap after chapter."}</p></div>`;
   if (_dispatchPaperHtml !== paper) { paperWrap.innerHTML = paper; _dispatchPaperHtml = paper; }
 
   // Archive
   const arch = published.length > 1 || (published.length && current && current.status !== "published")
-    ? `<div class="card dp-archive"><div class="card-title">Past Issues</div><div class="card-sub">${published.length} published</div>
+    ? `<div class="card dp-archive"><div class="card-title">Past Updates</div><div class="card-sub">${published.length} published</div>
         <ul class="dp-archive-list">${published.map(i => {
           const { vol, no } = dispatchIssueNumber(i);
           return `<li><button type="button" class="dp-archive-item${current && current.id === i.id ? " is-on" : ""}" data-dp-view="${i.id}">
@@ -3785,7 +3784,7 @@ function renderDispatchTab() {
   if (archive.dataset.html !== arch) {
     archive.dataset.html = arch; archive.innerHTML = arch;
     archive.querySelectorAll("[data-dp-view]").forEach(b => b.addEventListener("click", () => {
-      state.dispatchView = b.dataset.dpView; renderDispatchTab();
+      state.dispatchView = b.dataset.dpView; renderDispatchTab(); markUpdatesRead(b.dataset.dpView);
       paperWrap.scrollIntoView({ behavior: "smooth", block: "start" });
     }));
   }
@@ -3805,7 +3804,7 @@ function openDispatchEditor(which) {
   _dispatchEditorFor = which;
   editor.innerHTML = `
     <div class="card dp-editor">
-      <div class="card-title">${existing ? "Edit issue" : "Write an issue"}</div>
+      <div class="card-title">${existing ? "Edit update" : "Write an update"}</div>
       <div class="card-sub">Keep it short. Brothers read this on their phones.</div>
       <div class="row-2">
         <div>
@@ -3816,7 +3815,7 @@ function openDispatchEditor(which) {
           </select>
         </div>
         <div>
-          <label for="dp-date">Issue date</label>
+          <label for="dp-date">Date</label>
           <input type="date" id="dp-date" value="${escapeHtml(v.date || (recent.find(m => m.id === defMeeting) || {}).date || today)}">
         </div>
       </div>
@@ -3840,7 +3839,7 @@ function openDispatchEditor(which) {
       <textarea id="dp-shoutouts" rows="3" placeholder="Brother of the week: …">${escapeHtml(v.shoutouts || "")}</textarea>
       <label class="dp-notify"><input type="checkbox" id="dp-notify" ${existing && existing.status === "published" ? "" : "checked"}> Let brothers know when it's published</label>
       <div class="dp-editor-actions">
-        <button class="btn" type="button" id="dp-publish">${existing && existing.status === "published" ? "Update issue" : "Publish"}</button>
+        <button class="btn" type="button" id="dp-publish">${existing && existing.status === "published" ? "Save changes" : "Publish"}</button>
         <button class="btn btn-ghost" type="button" id="dp-preview">Preview</button>
         ${!existing || existing.status !== "published" ? `<button class="btn btn-ghost" type="button" id="dp-save-draft">Save draft</button>` : ""}
         <button class="btn btn-ghost" type="button" id="dp-cancel">Close</button>
@@ -3857,8 +3856,8 @@ function openDispatchEditor(which) {
   $("dp-save-draft")?.addEventListener("click", () => saveDispatch(existing, "draft"));
   $("dp-publish").addEventListener("click", () => saveDispatch(existing, "published"));
   $("dp-delete")?.addEventListener("click", async () => {
-    if (!confirm(`Delete "${existing.headline || "this issue"}"? This can't be undone.`)) return;
-    try { await settings.deleteDispatch(existing.id); state.dispatchView = null; closeDispatchEditor(); toast("Issue deleted"); }
+    if (!confirm(`Delete "${existing.headline || "this update"}"? This can't be undone.`)) return;
+    try { await settings.deleteDispatch(existing.id); state.dispatchView = null; closeDispatchEditor(); toast("Update deleted"); }
     catch (e) { console.error(e); toast("Couldn't delete. Exec sign-in required.", true); }
   });
   editor.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -3903,13 +3902,13 @@ async function saveDispatch(existing, status) {
     await settings.saveDispatch(issue);
     state.dispatchView = issue.id;
     closeDispatchEditor();
-    toast(status === "published" ? (wasPublished ? "Issue updated" : "Published") : "Draft saved");
+    toast(status === "published" ? (wasPublished ? "Changes saved" : "Published") : "Draft saved");
     if (notifyAll) {
       const mine = String(state.user.email || "").toLowerCase();
       const list = state.roster.filter(brotherIsEligible).filter(b => b.email && String(b.email).toLowerCase() !== mine);
       let sent = 0;
       for (const b of list) {
-        try { await notify(b.email, "dispatch", `📰 New Dispatch: ${issue.headline}`, issue.dek || (issue.recap || "").replace(/\s+/g, " ").slice(0, 160) || "A new issue of the Iota Pi Dispatch is out.", "info", issue.id); sent++; }
+        try { await notify(b.email, "dispatch", `📰 Chapter Update: ${issue.headline}`, issue.dek || (issue.recap || "").replace(/\s+/g, " ").slice(0, 160) || "A new chapter update is out. Open Chapter Updates to read it.", "info", issue.id); sent++; }
         catch (e) { console.warn("Dispatch notif failed for", b.email, e); }
       }
       if (sent) toast(`Published · ${sent} brother${sent === 1 ? "" : "s"} notified`);
@@ -3919,8 +3918,58 @@ async function saveDispatch(existing, status) {
     toast("Couldn't save. Exec sign-in required.", true);
   } finally { btns.forEach(b => b.disabled = false); }
 }
-function renderDispatchSafe() { try { renderDispatchTab(); } catch (e) { console.warn("Dispatch skipped:", e); } }
+function renderDispatchSafe() { try { renderDispatchTab(); } catch (e) { console.warn("Dispatch skipped:", e); } try { renderUpdatesTeaser(); } catch (e) { console.warn("Updates box skipped:", e); } }
 
+
+// ---------- Landing-page box: latest chapter update + what you missed ----------
+function _updReadKey() { return "pike-meetings:updatesRead:" + String((state.user && state.user.email) || "").toLowerCase(); }
+function _updReadSet() { try { return new Set(JSON.parse(localStorage.getItem(_updReadKey()) || "[]")); } catch (e) { return new Set(); } }
+// Mark one update as read (the one on screen). Older unread ones stay flagged until opened.
+function markUpdatesRead(id) {
+  if (!state.user) return;
+  const pub = dispatchPublished();
+  const target = id || state.dispatchView || (pub[0] && pub[0].id);
+  if (!target || !pub.some(i => i.id === target)) return;
+  const set = _updReadSet(); if (set.has(target)) return;
+  set.add(target);
+  try { localStorage.setItem(_updReadKey(), JSON.stringify([...set].slice(-200))); } catch (e) {}
+  renderUpdatesTeaser();
+}
+function renderUpdatesTeaser() {
+  const el = $("updates-teaser"); if (!el) return;
+  const pub = state.user ? dispatchPublished() : [];
+  if (!pub.length) { if (el.innerHTML) { el.innerHTML = ""; el.dataset.html = ""; } return; }
+  const read = _updReadSet(), cutoff = Date.now() - 30 * 86400000;   // only flag the last 30 days
+  const unread = pub.filter(i => !read.has(i.id) && (i.publishedAt || 0) > cutoff);
+  const lead = unread[0] || pub[0];
+  const snippet = lead.dek || String(lead.recap || "").replace(/[*_]/g, "").replace(/\s+/g, " ").slice(0, 120) + (String(lead.recap || "").length > 120 ? "…" : "");
+  const tag = unread.length === 0 ? "Latest"
+    : unread.length === 1 ? "New · you missed this"
+    : `${unread.length} new · you missed these`;
+  const more = unread.length > 1
+    ? `<ul class="upd-more">${unread.slice(1, 3).map(i => `<li><button type="button" data-upd-open="${i.id}">${escapeHtml(i.headline || "Untitled update")}<span> · ${fmtDateShort(i.date)}</span></button></li>`).join("")}${unread.length > 3 ? `<li class="upd-more-count">+${unread.length - 3} more</li>` : ""}</ul>` : "";
+  const html = `
+    <section class="upd-teaser${unread.length ? " is-new" : ""}" aria-label="Chapter updates">
+      <img class="upd-mark" src="assets/brand/symbol-gold.png" alt="">
+      <div class="upd-body">
+        <div class="upd-eyebrow"><span>Chapter Updates</span><span class="upd-tag">${escapeHtml(tag)}</span></div>
+        <button type="button" class="upd-head" data-upd-open="${lead.id}">${escapeHtml(lead.headline || "Untitled update")}</button>
+        <div class="upd-meta">${fmtDateShort(lead.date)}${snippet.trim() ? " · " + escapeHtml(snippet) : ""}</div>
+        ${more}
+      </div>
+      <button type="button" class="btn btn-small upd-read" data-upd-open="${lead.id}">Read</button>
+    </section>`;
+  if (el.dataset.html === html) return;
+  el.dataset.html = html; el.innerHTML = html;
+  el.querySelectorAll("[data-upd-open]").forEach(b => b.addEventListener("click", () => {
+    state.dispatchView = b.dataset.updOpen;
+    activateTab("dispatch");
+    renderDispatchSafe(); markUpdatesRead(b.dataset.updOpen);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }));
+}
+function renderUpdatesTeaserSafe() { try { renderUpdatesTeaser(); } catch (e) { console.warn("Updates box skipped:", e); } }
+document.querySelector('.tab[data-tab="dispatch"]')?.addEventListener("click", () => setTimeout(() => markUpdatesRead(), 0));
 // ===================================================================
 // INIT
 // ===================================================================
@@ -3991,6 +4040,7 @@ function openDispatchFromHash() {
   activateTab("dispatch");
   state.dispatchView = m[1];
   renderDispatchSafe();
+  setTimeout(() => markUpdatesRead(m[1]), 0);
 }
 window.addEventListener("hashchange", openDispatchFromHash);
 try { openDispatchFromHash(); } catch (e) { console.warn("Dispatch link skipped:", e); }

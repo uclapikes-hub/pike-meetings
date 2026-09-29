@@ -2125,3 +2125,35 @@ html[data-theme="dark"] .dp-headline, html[data-theme="dark"] .dp-section p, htm
   .dock-item { flex: 1 1 0; min-width: 0 !important; padding: 6px 1px 5px; }
   #pike-dock .dock-label { font-size: 9.5px !important; letter-spacing: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* ===== Landing: Chapter Updates box ===== */
+.upd-teaser {
+  display: flex; align-items: center; gap: 16px; margin: 0 0 18px; padding: 16px 18px;
+  border-radius: 22px; background: var(--surface); box-shadow: var(--raised, 0 8px 24px rgba(0,0,0,0.07));
+}
+.upd-teaser.is-new { box-shadow: var(--raised, 0 8px 24px rgba(0,0,0,0.07)), inset 0 0 0 2px rgba(121,36,47,0.22); }
+.upd-mark { width: 38px; height: auto; flex: none; opacity: 0.9; }
+.upd-body { flex: 1; min-width: 0; }
+.upd-eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: var(--font-ui); font-size: 11px; font-weight: 600;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-ink); }
+.upd-tag { padding: 2px 9px; border-radius: 999px; letter-spacing: 0.4px; text-transform: none; font-size: 11px;
+  background: rgba(170,151,103,0.18); color: var(--gold-ink); }
+.upd-teaser.is-new .upd-tag { background: var(--garnet); color: #fff; }
+.upd-head { display: block; width: 100%; text-align: left; border: none; background: none !important; box-shadow: none !important; padding: 0; margin: 4px 0 2px; cursor: pointer;
+  font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1.15; color: var(--slate); min-height: 0; }
+.upd-head:hover { color: var(--garnet); }
+.upd-meta { font-family: var(--font-body); font-size: 13.5px; line-height: 1.45; color: var(--slate); opacity: 0.8;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.upd-more { list-style: none; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px dashed rgba(170,151,103,0.4); }
+.upd-more li { margin: 2px 0; }
+.upd-more button { border: none; background: none !important; box-shadow: none !important; padding: 2px 0; min-height: 0; cursor: pointer; text-align: left;
+  font-family: var(--font-body); font-size: 14px; color: var(--garnet); }
+.upd-more button span { color: var(--gold-ink); }
+.upd-more-count { font-family: var(--font-body); font-size: 13px; color: var(--gold-ink); font-style: italic; }
+.upd-read { flex: none; margin-top: 0 !important; }
+@media (max-width: 520px) {
+  .upd-teaser { flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 16px; }
+  .upd-mark { width: 30px; }
+  .upd-body { flex: 1 1 calc(100% - 50px); }
+  .upd-read { width: 100%; }
+}
