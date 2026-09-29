@@ -131,7 +131,7 @@ header {
 .tagline {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
-  color: var(--true-gold);
+  color: var(--gold-ink);
   letter-spacing: 5px;
   text-transform: uppercase;
   margin-top: 14px;
@@ -168,7 +168,7 @@ header {
 }
 .app-link-bar a {
   text-decoration: none;
-  color: var(--true-gold);
+  color: var(--gold-ink);
   padding: 4px 10px;
   border: 1px solid transparent;
   transition: all 0.15s;
@@ -208,7 +208,7 @@ header {
   font-family: Georgia, serif;
   font-size: 12px;
   font-style: italic;
-  color: var(--true-gold);
+  color: var(--gold-ink);
   flex: 1;
   min-width: 200px;
 }
@@ -270,7 +270,7 @@ header {
 .card-sub {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
-  color: var(--true-gold);
+  color: var(--gold-ink);
   letter-spacing: 2px;
   text-transform: uppercase;
   font-weight: bold;
@@ -316,7 +316,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--g
   font-family: Georgia, serif;
   font-size: 12px;
   font-style: italic;
-  color: var(--true-gold);
+  color: var(--gold-ink);
   margin-top: 4px;
 }
 
@@ -429,13 +429,13 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   padding: 40px 20px;
   font-family: Georgia, serif;
   font-style: italic;
-  color: var(--true-gold);
+  color: var(--gold-ink);
 }
 .empty-coming-soon {
   text-align: center;
   padding: 60px 30px;
   font-family: Georgia, serif;
-  color: var(--true-gold);
+  color: var(--gold-ink);
 }
 .empty-coming-soon h3 {
   font-family: 'Cormorant Garamond', Georgia, serif;
@@ -517,7 +517,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .standing-tile .sub {
   font-family: Georgia, serif;
   font-size: 11px;
-  color: var(--true-gold);
+  color: var(--gold-ink);
   font-style: italic;
   margin-top: 4px;
 }
@@ -601,7 +601,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .modal-meta {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
-  color: var(--true-gold);
+  color: var(--gold-ink);
   letter-spacing: 1.5px;
   text-transform: uppercase;
   font-weight: bold;
@@ -624,7 +624,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   font-family: Georgia, serif;
   font-size: 12px;
   font-style: italic;
-  color: var(--true-gold);
+  color: var(--gold-ink);
   line-height: 1.5;
   margin-bottom: 8px;
 }
@@ -1117,11 +1117,174 @@ body.welcome-pulsing::after {
   transition: color 0.2s, border-color 0.2s;
 }
 .mtg-leadtime:empty { display: none; }
-.mtg-leadtime.is-good { color: var(--old-gold);   border-left-color: var(--true-gold); }
+.mtg-leadtime.is-good { color: var(--gold-ink);   border-left-color: var(--true-gold); }
 .mtg-leadtime.is-warn { color: var(--crimson);    border-left-color: var(--memphis-brick); }
 .mtg-leadtime.is-bad  { color: var(--garnet);     border-left-color: var(--garnet); font-style: normal; font-weight: bold; }
 
 @media (max-width: 600px) {
   .mtg-tip { padding: 12px 14px; }
   .mtg-tip-body { font-size: 13px; }
+}
+
+/* =====================================================================
+   PIKE SOFT UI LAYER  (shared by Event Tracker + Chapter Meetings)
+   ---------------------------------------------------------------------
+   Keep this block IDENTICAL in both apps' styles.css so they stay in sync.
+   Inspired by neumorphism (soft dual shadows, pressed inputs, rounded
+   everything) but kept on the PIKE brand palette: warm paper surfaces,
+   Garnet for action, gold for accents.
+   ===================================================================== */
+:root {
+  /* Accessible text gold: True Gold's hue, darkened to pass WCAG AA
+     (4.7:1 or better on white, paper and light-gold). True Gold itself
+     (#AA9767) is kept for borders, rules and large display type only. */
+  --gold-ink:   #72633E;
+  --surface:    #FFFFFF;
+  --surface-2:  #FBF7EF;   /* raised paper */
+
+  /* Radius */
+  --r-sm:   10px;
+  --r-md:   16px;   /* buttons, inputs, rows */
+  --r-lg:   24px;   /* cards, modals */
+  --r-pill: 999px;
+
+  /* Soft dual shadows: warm dark (bottom-right) + white light (top-left) */
+  --sh-dark:  rgba(120, 98, 66, 0.16);
+  --sh-dark-2: rgba(120, 98, 66, 0.24);
+  --sh-light: rgba(255, 255, 255, 0.95);
+  --raised:     8px 8px 18px var(--sh-dark),  -6px -6px 14px var(--sh-light);
+  --raised-hi: 12px 12px 24px var(--sh-dark-2), -8px -8px 18px var(--sh-light);
+  --raised-sm:  4px 4px 10px var(--sh-dark),  -3px -3px 8px var(--sh-light);
+  --inset:     inset 3px 3px 7px rgba(120, 98, 66, 0.16), inset -3px -3px 7px rgba(255, 255, 255, 0.9);
+  --inset-deep: inset 5px 5px 11px rgba(120, 98, 66, 0.22), inset -4px -4px 9px rgba(255, 255, 255, 0.9);
+
+  /* Type */
+  --font-body:  Georgia, "Times New Roman", serif;
+  --font-label: Arial, Helvetica, sans-serif;
+  --fs-xs: 10px;  --fs-sm: 12px;  --fs-md: 14px;
+  --fs-lg: 16px;  --fs-xl: 22px;  --fs-2xl: 28px;
+
+  --ease-soft: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ----- Cards: raised, rounded, borderless ----- */
+.card, .stat, .standing-tile, .event-row, .roster-item, .quarter-bar,
+.selected-brother, .add-brother, .exec-notice, .notice, .role-notice {
+  border-radius: var(--r-lg);
+}
+.card {
+  background: var(--surface);
+  border: none;
+  box-shadow: var(--raised);
+}
+.card:hover { box-shadow: var(--raised-hi); }
+.modal-card:hover, #standing-card:hover, .empty-coming-soon:hover { box-shadow: var(--raised); }
+
+.stat, .standing-tile, .event-row, .roster-item, .quarter-bar {
+  border-radius: var(--r-md);
+  box-shadow: var(--raised-sm);
+}
+.stat, .standing-tile, .event-row, .quarter-bar { border-color: transparent; }
+.event-row:hover, .standing-tile:hover { box-shadow: var(--raised); }
+
+/* ----- Tabs: pill segmented control in a pressed track ----- */
+.tabs {
+  border-bottom: none;
+  background: var(--light-gold);
+  border-radius: var(--r-pill);
+  padding: 6px;
+  gap: 4px;
+  box-shadow: var(--inset);
+}
+.tab {
+  border-bottom: none !important;
+  margin-bottom: 0;
+  border-radius: var(--r-pill);
+  padding: 11px 18px;
+  transition: background 0.3s var(--ease-soft), box-shadow 0.3s var(--ease-soft), color 0.2s;
+}
+.tab::after { display: none !important; }
+.tab.active {
+  background: var(--surface);
+  color: var(--garnet);
+  box-shadow: var(--raised-sm);
+}
+
+/* ----- Inputs: pressed wells ----- */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea {
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  box-shadow: var(--inset);
+  transition: box-shadow 0.3s var(--ease-soft), border-color 0.2s;
+}
+input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:focus {
+  border-color: transparent;
+  box-shadow: var(--inset-deep), 0 0 0 3px rgba(121, 36, 47, 0.28);
+}
+input[type="checkbox"] { accent-color: var(--garnet); width: 18px; height: 18px; }
+
+/* ----- Buttons: raised pills that press in ----- */
+.btn {
+  border-radius: var(--r-md);
+  box-shadow: 5px 5px 12px rgba(121, 36, 47, 0.28), -3px -3px 8px var(--sh-light);
+  min-height: 44px;
+  transition: background 0.2s var(--ease-soft), transform 0.3s var(--ease-soft), box-shadow 0.3s var(--ease-soft);
+}
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 8px 8px 16px rgba(121, 36, 47, 0.32), -4px -4px 10px var(--sh-light);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 3px 3px 7px rgba(0, 0, 0, 0.28), inset -2px -2px 5px rgba(255, 255, 255, 0.12);
+  transition-duration: 0.08s;
+}
+.btn-ghost, .btn-danger {
+  background: var(--surface);
+  box-shadow: var(--raised-sm);
+}
+.btn-ghost:hover:not(:disabled), .btn-danger:hover:not(:disabled) { box-shadow: var(--raised); }
+.btn-small { border-radius: var(--r-sm); min-height: 34px; }
+.btn:focus-visible, .tab:focus-visible, a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--garnet);
+  outline-offset: 3px;
+}
+
+/* ----- Callout boxes ----- */
+.mtg-tip, #mtg-mandatory-row, .exec-notice, .notice, .role-notice, .empty-coming-soon {
+  border-radius: var(--r-md);
+}
+
+/* ----- Pills, badges, chips ----- */
+.count-pill, .badge, .role-pill, .status-tag, .event-meta .badge {
+  border-radius: var(--r-pill);
+}
+.auth-bar button, .app-link-bar a { border-radius: var(--r-pill); }
+.suggestions { border-radius: var(--r-md); overflow: hidden; box-shadow: var(--raised); }
+
+/* ----- Modals and toasts ----- */
+.modal-card,                 /* Chapter Meetings dialog */
+.modal-backdrop .modal {      /* Event Tracker dialog    */
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.toast { border-radius: var(--r-md); }
+
+/* ----- Tables inside rounded cards ----- */
+table { border-radius: var(--r-md); overflow: hidden; }
+
+/* ----- Accessible gold text ----- */
+.card-sub, .help, .tagline, .empty, .modal-meta, .modal-help, .modal-sub,
+.quarter-hint, .standing-tile .sub, td.status-cell, .status-tag {
+  color: var(--gold-ink);
+}
+
+@media (max-width: 600px) {
+  .card { border-radius: 20px; }
+  .tabs { border-radius: var(--r-md); }
+  .tab { padding: 10px 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn, .tab, .card { transition: none; }
 }

@@ -477,7 +477,7 @@ function renderRollCallTab() {
         <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 6px;">
           ${escapeHtml(fmtDateLong(openNow.date))} &middot; ${fmtTime(openNow.startTime)}${openNow.location ? " &middot; " + escapeHtml(openNow.location) : ""}
         </div>
-        <div style="font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--true-gold); margin-top: 14px; font-weight: bold;">
+        <div style="font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-ink); margin-top: 14px; font-weight: bold;">
           Window closes ${closesIn}
         </div>
 
@@ -1117,7 +1117,7 @@ function renderCreateMeetingFormShell() {
           <input type="time" id="mtg-end" value="20:00">
         </div>
         <div>
-          <label for="mtg-window">QR Window <span style="font-weight: normal; color: var(--true-gold); text-transform: none; letter-spacing: 0;">(min after start)</span></label>
+          <label for="mtg-window">QR Window <span style="font-weight: normal; color: var(--gold-ink); text-transform: none; letter-spacing: 0;">(min after start)</span></label>
           <input type="number" id="mtg-window" value="5" min="1" max="60">
         </div>
       </div>
@@ -1132,7 +1132,7 @@ function renderCreateMeetingFormShell() {
         <label for="mtg-mandatory" id="mtg-mandatory-label" style="margin: 0; cursor: pointer;">
           Mandatory Meeting
         </label>
-        <span id="mtg-mandatory-hint" style="font-family: Georgia, serif; font-size: 12px; font-style: italic; color: var(--true-gold);"></span>
+        <span id="mtg-mandatory-hint" style="font-family: Georgia, serif; font-size: 12px; font-style: italic; color: var(--gold-ink);"></span>
       </div>
 
       <button class="btn" id="mtg-create">Create Meeting</button>
@@ -1366,14 +1366,14 @@ function openRollSheet(meetingId) {
         <span>${escapeHtml(b.firstName + " " + b.lastName)}</span>
         <span style="font-family: Arial; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--garnet); font-weight: bold;">PRESENT</span>
       </div>`).join("")
-    : `<div style="padding: 12px; font-family: Georgia, serif; font-style: italic; color: var(--true-gold);">No one has marked themselves present yet.</div>`;
+    : `<div style="padding: 12px; font-family: Georgia, serif; font-style: italic; color: var(--gold-ink);">No one has marked themselves present yet.</div>`;
 
   $("roll-sheet-absent").innerHTML = absent.length
     ? absent.map(b => `<div style="padding: 8px 14px; border-bottom: 1px solid var(--light-gold); font-family: Georgia, serif; font-size: 13px; display: flex; justify-content: space-between;">
         <span>${escapeHtml(b.firstName + " " + b.lastName)}</span>
         <span style="font-family: Arial; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--memphis-brick);">${b.status === "New Member" ? "NM" : ""} ${qrWindow(m).isPast ? "ABSENT" : "—"}</span>
       </div>`).join("")
-    : `<div style="padding: 12px; font-family: Georgia, serif; font-style: italic; color: var(--true-gold);">Everyone eligible has marked present.</div>`;
+    : `<div style="padding: 12px; font-family: Georgia, serif; font-style: italic; color: var(--gold-ink);">Everyone eligible has marked present.</div>`;
 
   sheet.classList.add("visible");
 }
@@ -1595,7 +1595,7 @@ function renderAbsenceFormShell() {
 
         <label for="abs-description">
           Details
-          <span style="font-weight: normal; text-transform: none; letter-spacing: 0; color: var(--true-gold); font-style: italic; margin-left: 6px;">
+          <span style="font-weight: normal; text-transform: none; letter-spacing: 0; color: var(--gold-ink); font-style: italic; margin-left: 6px;">
             (be specific — at least one full sentence)
           </span>
         </label>
@@ -1932,7 +1932,7 @@ function renderApproverCard(r) {
       </div>
 
       <div style="margin-top: 14px;">
-        <label for="abs-note-${r.id}" style="margin: 0 0 4px;">Note <span style="font-weight: normal; text-transform: none; letter-spacing: 0; color: var(--true-gold); font-style: italic;">(optional, brother sees this)</span></label>
+        <label for="abs-note-${r.id}" style="margin: 0 0 4px;">Note <span style="font-weight: normal; text-transform: none; letter-spacing: 0; color: var(--gold-ink); font-style: italic;">(optional, brother sees this)</span></label>
         <input type="text" id="abs-note-${r.id}" placeholder="e.g. 'Approved — please email proof to secretary'" autocomplete="off">
       </div>
 
@@ -2064,7 +2064,7 @@ function renderAppealCard(n) {
       </div>
 
       <div style="margin-top: 14px;">
-        <label for="appeal-note-${n.id}" style="margin: 0 0 4px;">Note <span style="font-weight: normal; text-transform: none; letter-spacing: 0; color: var(--true-gold); font-style: italic;">(brother sees this)</span></label>
+        <label for="appeal-note-${n.id}" style="margin: 0 0 4px;">Note <span style="font-weight: normal; text-transform: none; letter-spacing: 0; color: var(--gold-ink); font-style: italic;">(brother sees this)</span></label>
         <input type="text" id="appeal-note-${n.id}" placeholder="e.g. 'Overturned — confirmed with health center'" autocomplete="off">
       </div>
 
