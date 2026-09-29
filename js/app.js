@@ -1552,24 +1552,62 @@ function openRollSheet(meetingId) {
 // ===================================================================
 let _qrPresentTimer = null;
 
-// QR with a white quiet zone (scanners need it) and high error correction
+// Brand mark for the center of QR codes (preloaded once)
+const _qrMark = new Image();
+_qrMark.src = "assets/brand/symbol-gold.png";
+
+// Branded QR: rounded finder "eyes", soft rounded-square modules, PIKE symbol badge in the center,
+// white quiet zone. High error correction (H) keeps it scannable with the badge.
 function pikeQrCanvas(text, px) {
   const tmp = document.createElement("div");
-  new QRCode(tmp, { text, width: px, height: px, colorDark: "#79242F", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
-  const src = tmp.querySelector("canvas");
-  const quiet = Math.round(px * 0.09);
+  const qr = new QRCode(tmp, { text, width: 64, height: 64, colorDark: "#000", colorLight: "#fff", correctLevel: QRCode.CorrectLevel.H });
+  const model = qr._oQRCode;
+  const N = model.getModuleCount();
+  const m = Math.max(1, Math.floor(px / N));   // whole-pixel modules: crisp edges, no resampling seams
+  px = m * N;
+  const quiet = m * 4;                           // standard 4-module quiet zone
   const c = document.createElement("canvas");
   c.width = c.height = px + quiet * 2;
   const g = c.getContext("2d");
   g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
-  g.imageSmoothingEnabled = false;
-  g.drawImage(src, quiet, quiet, px, px);
+  const FG = "#79242F";
+  const inFinder = (r, col) => (r < 7 && col < 7) || (r < 7 && col >= N - 7) || (r >= N - 7 && col < 7);
+  // Center badge area (skip dots underneath)
+  const badge = Math.round(N * 0.22) | 1;
+  const b0 = Math.floor((N - badge) / 2), b1 = b0 + badge;
+  const inBadge = (r, col) => r >= b0 && r < b1 && col >= b0 && col < b1;
+  g.fillStyle = FG;
+  for (let r = 0; r < N; r++) for (let col = 0; col < N; col++) {
+    if (!model.isDark(r, col) || inFinder(r, col) || inBadge(r, col)) continue;
+    // Soft rounded-square modules: rounded look, and they scan reliably at every size (round dots don't)
+    const s = m;
+    pikeRoundRect(g, quiet + (col + 0.5) * m - s / 2, quiet + (r + 0.5) * m - s / 2, s, s, s * 0.28); g.fill();
+  }
+  const eye = (r, col) => {
+    const x = quiet + col * m, y = quiet + r * m;
+    g.fillStyle = FG;      pikeRoundRect(g, x, y, 7 * m, 7 * m, 1.9 * m); g.fill();
+    g.fillStyle = "#fff";  pikeRoundRect(g, x + m, y + m, 5 * m, 5 * m, 1.3 * m); g.fill();
+    g.fillStyle = FG;      pikeRoundRect(g, x + 2 * m, y + 2 * m, 3 * m, 3 * m, 0.9 * m); g.fill();
+  };
+  eye(0, 0); eye(0, N - 7); eye(N - 7, 0);
+  // Badge: white rounded square, thin gold ring, PIKE symbol
+  const bx = quiet + b0 * m, bs = badge * m;
+  g.fillStyle = "#ffffff"; pikeRoundRect(g, bx + m * 0.2, bx + m * 0.2, bs - m * 0.4, bs - m * 0.4, bs * 0.28); g.fill();
+  g.strokeStyle = "#AA9767"; g.lineWidth = Math.max(1, m * 0.25); g.stroke();
+  if (_qrMark.complete && _qrMark.naturalWidth) {
+    const h = bs * 0.66, w = h * (_qrMark.naturalWidth / _qrMark.naturalHeight);
+    g.drawImage(_qrMark, bx + (bs - w) / 2, bx + (bs - h) / 2, w, h);
+  }
   return c;
 }
 
 function pikeRoundRect(g, x, y, w, h, r) {
   g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
   g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+
+function pikeLoadImg(src) {
+  return new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
 }
 
 // Printable 1200x1650 poster: PIKE header, title, details, big QR, instructions
@@ -1581,9 +1619,11 @@ async function pikeQrPoster(url, title, meta, instruction) {
   const hdr = g.createLinearGradient(0, 0, W, 220); hdr.addColorStop(0, "#79242F"); hdr.addColorStop(1, "#572A31");
   g.fillStyle = hdr; g.fillRect(0, 0, W, 220);
   g.textAlign = "center";
-  g.fillStyle = "#AA9767"; g.font = '600 96px "Cormorant Garamond", Georgia, serif'; g.fillText("PIKE", W / 2, 118);
-  g.fillStyle = "rgba(255,255,255,0.85)"; g.font = '600 26px "Gantari", Arial, sans-serif';
-  g.fillText("I O T A   P I   ·   U C L A", W / 2, 172);
+  const wm = await pikeLoadImg("assets/brand/wordmark-reversed-lg.png");
+  if (wm) { const ww = 380, wh = ww * wm.naturalHeight / wm.naturalWidth; g.drawImage(wm, (W - ww) / 2, 26, ww, wh); }
+  else { g.fillStyle = "#AA9767"; g.font = '600 96px "Cormorant Garamond", Georgia, serif'; g.fillText("PIKE", W / 2, 118); }
+  g.fillStyle = "rgba(255,255,255,0.8)"; g.font = '600 22px "Gantari", Arial, sans-serif';
+  g.fillText("I O T A   P I   ·   U C L A", W / 2, 200);
   let size = 78; g.font = `600 ${size}px "Cormorant Garamond", Georgia, serif`;
   while (g.measureText(title).width > W - 140 && size > 40) { size -= 4; g.font = `600 ${size}px "Cormorant Garamond", Georgia, serif`; }
   g.fillStyle = "#79242F"; g.fillText(title, W / 2, 330);
@@ -1593,15 +1633,20 @@ async function pikeQrPoster(url, title, meta, instruction) {
   g.imageSmoothingEnabled = false; g.drawImage(pikeQrCanvas(url, 700), 200, 480, 800, 800);
   g.fillStyle = "#323E48"; g.font = '600 36px "Gantari", Arial, sans-serif'; g.fillText(instruction, W / 2, 1410);
   g.fillStyle = "#72633E"; g.font = '500 26px "Gantari", Arial, sans-serif'; g.fillText("Open your phone camera and point it at the code.", W / 2, 1462);
-  g.fillStyle = "#AA9767"; g.font = '600 24px "Gantari", Arial, sans-serif'; g.fillText("C O U R A G E   T O   B E   M O R E", W / 2, 1570);
+  const sym = await pikeLoadImg("assets/brand/symbol-gold.png");
+  if (sym) { const sh = 70, sw = sh * sym.naturalWidth / sym.naturalHeight; g.drawImage(sym, (W - sw) / 2, 1520, sw, sh); }
   return c;
 }
 
 // Draw the code into the modal (one canvas, no duplicates) and prep the poster
 function pikeRenderQrModal(holder, url, title, meta, instruction) {
   holder.innerHTML = "";
-  const code = pikeQrCanvas(url, 560);
+  // Draw at the exact on-screen size for this screen's pixel density, so it is never resampled
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const cssW = Math.min(300, (holder.clientWidth || 300));
+  const code = pikeQrCanvas(url, Math.round(cssW * dpr));
   code.className = "pike-qr-code";
+  code.style.width = (code.width / dpr) + "px";   // 1 canvas pixel = 1 device pixel
   code.setAttribute("role", "img");
   code.setAttribute("aria-label", "QR code for " + title);
   holder.appendChild(code);
@@ -1616,7 +1661,7 @@ function pikeQrPresent(url, title, meta, statusFn) {
   el.id = "qr-present"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "QR code, presentation mode");
   el.innerHTML = `
     <button class="qp-close" type="button" aria-label="Exit presentation">&times;</button>
-    <div class="qp-brand">PIKE · Iota Pi</div>
+    <img class="qp-logo" src="assets/brand/wordmark-reversed.png" alt="PIKE">
     <div class="qp-title"></div>
     <div class="qp-meta"></div>
     <div class="qp-code"></div>

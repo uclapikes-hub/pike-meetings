@@ -1644,8 +1644,8 @@ p { line-height: 1.6; }
 /* ----- QR: single crisp code with quiet zone ----- */
 .qr-holder, .qr-holder-wrap { background: transparent !important; border: none !important; padding: 8px 0 !important; }
 .pike-qr-code {
-  display: block !important; width: 100%; max-width: 300px; height: auto; margin: 0 auto;
-  border-radius: 18px; image-rendering: pixelated;
+  display: block !important; width: auto; max-width: 100%; height: auto; margin: 0 auto;
+  border-radius: 18px; image-rendering: auto;
   box-shadow: 8px 8px 20px rgba(120,98,66,0.16), -6px -6px 14px rgba(255,255,255,0.95);
 }
 .modal-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
@@ -1666,7 +1666,7 @@ p { line-height: 1.6; }
 #qr-present .qp-title { font-family: var(--font-display); font-size: clamp(34px, 5vw, 64px); font-weight: 600; line-height: 1.05; letter-spacing: -0.01em; }
 #qr-present .qp-meta { font-family: var(--font-ui); font-size: clamp(15px, 1.8vw, 22px); color: rgba(255,255,255,0.85); }
 #qr-present .qp-code { margin: 14px 0 6px; padding: 14px; background: white; border-radius: 28px; box-shadow: 0 30px 70px rgba(0,0,0,0.35); }
-#qr-present .qp-code canvas { display: block; width: min(62vh, 78vw); height: auto; image-rendering: pixelated; border-radius: 14px; }
+#qr-present .qp-code canvas { display: block; width: min(62vh, 78vw); height: auto; image-rendering: auto; border-radius: 14px; }
 #qr-present .qp-status {
   font-family: var(--font-ui); font-size: clamp(15px, 1.8vw, 20px); font-weight: 600; letter-spacing: 1px;
   padding: 10px 20px; border-radius: 999px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.2);
@@ -1861,3 +1861,16 @@ html[data-theme="dark"] [style*="color: var(--dagger)"] { color: #9FB0C0 !import
 .pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .pager-num.is-active { background: var(--surface); color: var(--garnet); box-shadow: var(--raised-sm); }
 .pager-gap { color: var(--gold-ink); padding: 0 4px; }
+
+/* ----- Official PIKE logos (light/dark aware) ----- */
+.pike-logo { width: 260px; max-width: 72%; }
+.coa-watermark { mix-blend-mode: normal !important; width: 230px; top: 0; }
+.coa-light { opacity: 0.16; }
+.coa-dark, .logo-dark { display: none !important; }
+html[data-theme="dark"] .coa-light, html[data-theme="dark"] .logo-light { display: none !important; }
+html[data-theme="dark"] .coa-dark { display: block !important; opacity: 0.07; }
+html[data-theme="dark"] .logo-dark { display: block !important; }
+@media (max-width: 600px) { .pike-logo { width: 210px; } .coa-watermark { width: 170px; } }
+
+#qr-present .qp-logo { width: 200px; height: auto; margin-bottom: 4px; }
+@media (max-height: 700px) { #qr-present .qp-logo { width: 150px; } }
