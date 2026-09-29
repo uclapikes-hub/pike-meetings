@@ -1188,6 +1188,10 @@ function renderMeetingsTab() {
         $(id)?.addEventListener("input", updateLeadTimeHint);
         $(id)?.addEventListener("change", updateLeadTimeHint);
       });
+      ["mtg-repeat", "mtg-until", "mtg-date"].forEach(id => {
+        $(id)?.addEventListener("input", () => updateRepeatPreview(id === "mtg-repeat" || id === "mtg-date"));
+        $(id)?.addEventListener("change", () => updateRepeatPreview(id === "mtg-repeat" || id === "mtg-date"));
+      });
       defaultMeetingDate();
       updateLeadTimeHint();
     } else {
@@ -1297,6 +1301,22 @@ function renderCreateMeetingFormShell() {
       <label for="mtg-location">Location</label>
       <input type="text" id="mtg-location" placeholder="Chapter house living room" autocomplete="off">
 
+      <div class="row-2 mtg-repeat-row">
+        <div>
+          <label for="mtg-repeat">Repeat</label>
+          <select id="mtg-repeat">
+            <option value="0">Does not repeat</option>
+            <option value="7">Every week</option>
+            <option value="14">Every 2 weeks</option>
+          </select>
+        </div>
+        <div id="mtg-until-wrap" hidden>
+          <label for="mtg-until">Until</label>
+          <input type="date" id="mtg-until">
+        </div>
+      </div>
+      <div id="mtg-repeat-preview" class="mtg-repeat-preview" aria-live="polite" hidden></div>
+
       <div id="mtg-mandatory-row" style="display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 12px 14px; background: var(--light-gold); background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
         <input type="checkbox" id="mtg-mandatory" style="width: auto; margin: 0;">
         <label for="mtg-mandatory" id="mtg-mandatory-label" style="margin: 0; cursor: pointer;">
@@ -1349,6 +1369,14 @@ async function handleCreateMeeting() {
   const location  = $("mtg-location").value.trim();
   const mandatory = $("mtg-mandatory").checked;
   const qrWin     = Math.max(1, Math.min(60, Number($("mtg-window").value) || 5));
+
+  const repeatDays = Number($("mtg-repeat")?.value || 0);
+  if (repeatDays) {
+    if (mandatory) return toast("Recurring meetings can't be mandatory. Create mandatory meetings one at a time.", true);
+    if (!title)     return toast("Meeting title is required", true);
+    if (!startTime || !endTime) return toast("Start and end time are required", true);
+    return createMeetingSeries({ title, startTime, endTime, location, qrWin, repeatDays });
+  }
 
   if (!title)     return toast("Meeting title is required", true);
   if (!date)      return toast("Date is required", true);
@@ -1466,7 +1494,7 @@ function renderMeetingRow(m, isExec) {
     <div class="event-row" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: white; border: 1px solid rgba(170,151,103,0.3); border-radius: 14px; ${m.mandatory ? "background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px;" : ""} gap: 12px; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 220px;">
         <div style="font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--garnet);">
-          ${escapeHtml(m.title)} ${m.mandatory ? `<span style="font-family: var(--font-ui); font-size: 9px; letter-spacing: 1.5px; color: var(--burgundy); margin-left: 6px;">⚑ MANDATORY</span>` : ""}
+          ${escapeHtml(m.title)} ${m.mandatory ? `<span style="font-family: var(--font-ui); font-size: 9px; letter-spacing: 1.5px; color: var(--burgundy); margin-left: 6px;">⚑ MANDATORY</span>` : ""}${m.seriesId ? `<span class="mtg-series-tag" title="Part of a recurring series">↻ ${m.repeatDays === 14 ? "Every 2 weeks" : "Weekly"}</span>` : ""}
         </div>
         <div style="font-family: var(--font-ui); font-size: 11px; color: var(--slate); letter-spacing: 1px; margin-top: 4px;">
           ${escapeHtml(fmtDate(m.date))} &middot; ${fmtTime(m.startTime)}–${fmtTime(m.endTime)}${m.location ? " &middot; " + escapeHtml(m.location) : ""}
@@ -1507,8 +1535,22 @@ async function deleteMeeting(id) {
     : `Delete "${m.title}" and ALL associated data?\n\nThis will also remove:\n• ${parts.join("\n• ")}\n\nThis cannot be undone.`;
 
   if (!confirm(msg)) return;
+  // Part of a recurring series? Offer to cancel the later ones too.
+  const later = m.seriesId
+    ? state.meetings.filter(x => x.seriesId === m.seriesId && x.id !== id && x.date > m.date).sort((a, b) => a.date.localeCompare(b.date))
+    : [];
+  const alsoLater = later.length > 0 && confirm(
+    `"${m.title}" repeats. Also delete the ${later.length} later meeting${later.length === 1 ? "" : "s"} in this series ` +
+    `(${fmtDateShort(later[0].date)}${later.length > 1 ? " to " + fmtDateShort(later[later.length - 1].date) : ""})?\n\n` +
+    `OK deletes them too. Cancel deletes only this one.`
+  );
   try {
     await meetings.remove(id);
+    if (alsoLater) {
+      for (const x of later) await meetings.remove(x.id);
+      toast(`Deleted ${later.length + 1} meetings in the series`);
+      return;
+    }
     toast("Meeting and associated data deleted");
   } catch (e) {
     console.error(e);
@@ -3497,6 +3539,87 @@ function initDock() {
   new MutationObserver(sync).observe(document.querySelector(".tabs"), { subtree: true, attributes: true, attributeFilter: ["class", "style"] });
   new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ["class"] });
   sync();
+}
+
+
+// ===================================================================
+// RECURRING MEETINGS
+// A series is just ordinary meetings that share a seriesId, so roll call,
+// absence requests, no-shows and fines work on each one exactly as before.
+// ===================================================================
+const SERIES_MAX = 26;
+function _ymd(d) { const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+function _addDays(ymd, n) { const [y, m, d] = ymd.split("-").map(Number); const dt = new Date(y, m - 1, d); dt.setDate(dt.getDate() + n); return _ymd(dt); }
+function fmtDateShort(ymd) { const [y, m, d] = ymd.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
+
+function seriesDates() {
+  const first = $("mtg-date")?.value, until = $("mtg-until")?.value;
+  const step = Number($("mtg-repeat")?.value || 0);
+  if (!first || !step || !until || until < first) return first ? [first] : [];
+  const out = [];
+  for (let d = first; d <= until && out.length < SERIES_MAX; d = _addDays(d, step)) out.push(d);
+  return out;
+}
+
+function updateRepeatPreview(resetUntil) {
+  const step = Number($("mtg-repeat")?.value || 0);
+  const wrap = $("mtg-until-wrap"), prev = $("mtg-repeat-preview"), until = $("mtg-until");
+  const mand = $("mtg-mandatory"), mandRow = $("mtg-mandatory-row");
+  if (!wrap || !prev || !until) return;
+  wrap.hidden = !step; prev.hidden = !step;
+  if (mandRow) mandRow.classList.toggle("is-off-for-series", !!step);
+  if (mand && step) mand.checked = false;
+  if (!step) { prev.textContent = ""; updateLeadTimeHint(); return; }
+  const first = $("mtg-date")?.value;
+  if (first && (resetUntil || !until.value || until.value < first)) until.value = _addDays(first, step * 9); // ~one quarter
+  if (first) until.min = first;
+  const dates = seriesDates();
+  const taken = new Set(state.meetings.map(m => m.date));
+  const dup = dates.filter(d => taken.has(d)).length;
+  const capped = dates.length >= SERIES_MAX && _addDays(dates[dates.length - 1], step) <= until.value;
+  const newCount = dates.length - dup;
+  prev.innerHTML = dates.length
+    ? `<strong>${newCount} new meeting${newCount === 1 ? "" : "s"}</strong>: ` +
+      dates.map(d => taken.has(d)
+        ? `<span class="mtg-date-chip is-skip" title="Already has a meeting">${fmtDateShort(d)}</span>`
+        : `<span class="mtg-date-chip">${fmtDateShort(d)}</span>`).join(" · ") +
+      (dup ? `<div class="mtg-repeat-note">${dup === 1 ? "The crossed-out date already has a meeting, so it will be skipped." : `The ${dup} crossed-out dates already have meetings, so they will be skipped.`}</div>` : "") +
+      (capped ? `<div class="mtg-repeat-note">Capped at ${SERIES_MAX} meetings per series.</div>` : "") +
+      `<div class="mtg-repeat-note">Recurring meetings can't be mandatory.</div>`
+    : "Pick an end date on or after the first meeting.";
+  updateLeadTimeHint();
+}
+
+async function createMeetingSeries({ title, startTime, endTime, location, qrWin, repeatDays }) {
+  const dates = seriesDates();
+  if (!dates.length) return toast("Pick a first date and an end date", true);
+  const first = dates[0];
+  if (combineLocalDateTime(first, endTime).getTime() <= combineLocalDateTime(first, startTime).getTime())
+    return toast("End time must be after start time", true);
+  const taken = new Set(state.meetings.map(m => m.date));
+  const todo = dates.filter(d => !taken.has(d));
+  if (!todo.length) return toast("Every one of those dates already has a meeting", true);
+  const hoursOut = (combineLocalDateTime(todo[0], startTime).getTime() - Date.now()) / 3600000;
+  const lead = hoursOut < 48 ? `\n\nHeads up: the first one is less than 48 hours away, so brothers can't request an absence for it in the app.` : "";
+  if (!confirm(`Create ${todo.length} "${title}" meeting${todo.length === 1 ? "" : "s"}, ${repeatDays === 14 ? "every 2 weeks" : "every week"} at ${fmtTime(startTime)}, from ${fmtDateShort(todo[0])} to ${fmtDateShort(todo[todo.length - 1])}?${lead}`)) return;
+
+  const seriesId = "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const btn = $("mtg-create"); if (btn) { btn.disabled = true; btn.textContent = "Creating…"; }
+  let made = 0;
+  try {
+    for (const date of todo) {
+      await meetings.create({ title, date, startTime, endTime, location, mandatory: false, qrWindowMinutes: qrWin, seriesId, repeatDays });
+      made++;
+    }
+    $("mtg-title").value = ""; $("mtg-location").value = ""; $("mtg-repeat").value = "0";
+    updateRepeatPreview(); updateLeadTimeHint();
+    toast(`Created ${made} recurring meetings`);
+  } catch (e) {
+    console.error(e);
+    toast(made ? `Created ${made} of ${todo.length}, then hit an error. Check the list.` : "Permission denied — exec sign-in required", true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Create Meeting"; }
+  }
 }
 
 // ===================================================================
