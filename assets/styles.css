@@ -1874,3 +1874,65 @@ html[data-theme="dark"] .logo-dark { display: block !important; }
 
 #qr-present .qp-logo { width: 200px; height: auto; margin-bottom: 4px; }
 @media (max-height: 700px) { #qr-present .qp-logo { width: 150px; } }
+
+/* ===================================================================
+   FLUIDITY PASS: cheaper repaints, phone-sized tap targets, readable minimum text
+   =================================================================== */
+
+/* Page background: paint the gradients once on a fixed layer instead of across
+   the whole page, so switching tabs or growing a list doesn't repaint everything */
+html { background-color: var(--paper); }
+html body, html[data-theme="dark"] body { background: transparent !important; }
+html::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(170,151,103,0.10) 0%, transparent 45%),
+    radial-gradient(circle at 90% 100%, rgba(121,36,47,0.08) 0%, transparent 45%);
+  transform: translateZ(0);
+}
+html[data-theme="dark"]::before {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(170,151,103,0.08) 0%, transparent 45%),
+    radial-gradient(circle at 90% 100%, rgba(142,43,57,0.14) 0%, transparent 45%);
+}
+
+/* Fine alert glow: same look, but it breathes with opacity (GPU-only)
+   instead of re-drawing three giant shadows every frame */
+body.has-active-fine::before {
+  box-shadow:
+    inset 0 0 60px 15px  rgba(121, 36, 47, 0.42),
+    inset 0 0 120px 45px rgba(158, 137, 89, 0.20),
+    inset 0 0 170px 80px rgba(87, 42, 49, 0.10) !important;
+  animation: pikeAuraBreathe 4s ease-in-out infinite !important;
+  will-change: opacity;
+}
+@keyframes pikeAuraBreathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+body.has-active-fine:has(.modal.visible)::before { animation: none !important; opacity: 0.45; }
+
+/* Tap targets: at least 40px on touch screens without changing the look */
+@media (pointer: coarse), (max-width: 600px) {
+  .theme-switch button, .welcome-card .wb-close { overflow: visible; }
+  .theme-switch button::after, .welcome-card .wb-close::after {
+    content: ""; position: absolute; inset: -6px; border-radius: 50%;
+  }
+  .welcome-card .wb-close { position: absolute; }
+  .app-link-bar a { display: inline-flex; align-items: center; min-height: 40px; padding-left: 14px; padding-right: 14px; }
+}
+
+/* Readable minimum text: nothing below 10.5px */
+.chapter-tag, .wb-label, .stat-label, .badge, .mtg-tip-label { font-size: 11px !important; }
+.label, .role-pill, form label, .quarter-bar label { font-size: 10.5px !important; }
+.btn-small { font-size: 11.5px; }
+table th { font-size: 11px; }
+.add-brother-row label, .nm-name { font-size: 10.5px; }
+.dock-label { font-size: 10px !important; }
+[style*="font-size: 9px"], [style*="font-size:9px"] { font-size: 10.5px !important; }
+[style*="font-size: 10px"], [style*="font-size:10px"] { font-size: 11px !important; }
+
+/* Respect "reduce motion" everywhere */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+  }
+}
