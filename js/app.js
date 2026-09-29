@@ -395,6 +395,7 @@ document.querySelectorAll(".tab").forEach(t => {
 // ===================================================================
 function renderAll() {
   try { renderWelcomeBack(); } catch (e) { console.warn("Welcome card skipped:", e); }
+  try { renderGetStartedMeetings(); } catch (e) { console.warn("Get Started skipped:", e); }
   renderMyStanding();
   renderRollCallTab();
   renderMeetingsTab();
@@ -3292,6 +3293,166 @@ function initNowWidgets() {
 // When weather arrives, refresh the Next Meeting card so it can show the forecast
 function nwOnWeather() { try { renderRollCallTab(); } catch (e) {} }
 // ===================================================================
+// GET STARTED GUIDE: step checklist with progress + troubleshooting
+// ===================================================================
+const GS_CHECK = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8.5 12.5 2.3 2.3 4.7-5.1"/></svg>`;
+const GS_OPEN  = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>`;
+
+function pikeRenderGetStarted(el, cfg) {
+  if (!el) return;
+  const done = cfg.steps.filter(s => s.done).length;
+  const total = cfg.steps.length;
+  const pct = Math.round((done / total) * 100);
+  const html = `
+    <details class="gs-card" id="gs-details">
+      <summary>
+        <div class="gs-head">
+          <span class="gs-eyebrow">${done === total ? "All set" : "Get started"}</span>
+          <span class="gs-count">${done} of ${total} steps</span>
+        </div>
+        <div class="gs-title">${escapeHtml(cfg.title)}</div>
+        <div class="gs-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>
+      </summary>
+      <ol class="gs-steps">
+        ${cfg.steps.map(s => `
+          <li class="${s.done ? "is-done" : ""}">
+            <span class="gs-icon">${s.done ? GS_CHECK : GS_OPEN}</span>
+            <span><span class="gs-label">${escapeHtml(s.label)}</span>
+            ${s.detail ? `<span class="gs-detail">${escapeHtml(s.detail)}</span>` : ""}</span>
+          </li>`).join("")}
+      </ol>
+      <div class="gs-help">
+        <div class="gs-help-title">Having trouble?</div>
+        <div class="gs-tips">
+          ${cfg.tips.map(t => `<div class="gs-tip"><div class="gs-tip-q">${escapeHtml(t.q)}</div><div class="gs-tip-a">${escapeHtml(t.a)}</div></div>`).join("")}
+        </div>
+        <button class="btn btn-ghost btn-small gs-refresh" type="button">Refresh page</button>
+      </div>
+    </details>`;
+  if (el.dataset.html === html) return;
+  const prev = el.querySelector("#gs-details");
+  const wasOpen = prev ? prev.open : null;
+  el.dataset.html = html;
+  el.innerHTML = html;
+  const det = el.querySelector("#gs-details");
+  det.open = wasOpen != null && el.dataset.touched === "1" ? wasOpen : !!cfg.startOpen;
+  det.addEventListener("toggle", () => { el.dataset.touched = "1"; });
+  el.querySelector(".gs-refresh").addEventListener("click", () => window.location.reload());
+}
+
+function renderGetStartedMeetings() {
+  const u = state.user, me = u && u.rosterEntry;
+  const upcoming = state.meetings.some(m => { const w = qrWindow(m); return w.isFuture || w.isOpen; });
+  const checked = !!me && state.attendance.some(a => a.brotherKey === me.key && inQuarter(a));
+  pikeRenderGetStarted($("get-started"), {
+    title: "Checking in to chapter meetings",
+    startOpen: !u,
+    steps: [
+      { label: "Sign in with your chapter Gmail", done: !!u,
+        detail: u ? "" : "Tap Sign In with Google at the top. Use the Gmail the chapter has on file." },
+      { label: "Get matched to the roster", done: !!me,
+        detail: me ? "" : "Your Gmail has to be on the chapter roster. Ask an exec to add it in the Event Tracker's Roster tab." },
+      { label: "Find your next meeting", done: upcoming,
+        detail: upcoming ? "" : "Nothing is scheduled yet. Expecting one? Refresh the page." },
+      { label: "Check in at roll call", done: checked,
+        detail: checked ? "" : "Mark Me Present appears on this tab 15 minutes before start. Scanning the QR code at the meeting brings you here too." },
+    ],
+    tips: [
+      { q: "Don't see your meeting?", a: "Refresh the page. New meetings appear as soon as the secretary posts them, but a tab left open can fall behind." },
+      { q: "Mark Me Present isn't showing?", a: "Roll call only opens from 15 minutes before start until a few minutes after. Check the countdown on the Next Meeting card." },
+      { q: "Sign-in popup won't open?", a: "Allow pop-ups for this site, or open the link in Safari or Chrome instead of an in-app browser (GroupMe, Instagram)." },
+      { q: "Signed in with the wrong account?", a: "Tap Sign out at the top, then sign in with the Gmail the chapter has on file." },
+    ],
+  });
+}
+// ===================================================================
+// THEME SWITCHER: System / Light / Dark (saved per browser)
+// ===================================================================
+const THEME_ICONS = {
+  system: `<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
+  light:  `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`,
+  dark:   `<svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M19 3v4M21 5h-4"/></svg>`,
+};
+const THEME_ORDER = ["system", "light", "dark"];
+function themeGet() { try { return localStorage.getItem("pike-theme") || "system"; } catch (e) { return "system"; } }
+function themeApply(pref) {
+  const dark = pref === "dark" || (pref === "system" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+}
+function initThemeSwitcher() {
+  const bar = document.querySelector(".auth-bar");
+  if (!bar || document.querySelector(".theme-switch")) return;
+  const wrap = document.createElement("div");
+  wrap.className = "theme-switch"; wrap.setAttribute("role", "radiogroup"); wrap.setAttribute("aria-label", "Color theme");
+  wrap.innerHTML = `<span class="ts-pill" aria-hidden="true"></span>` + THEME_ORDER.map(v =>
+    `<button type="button" role="radio" data-theme-value="${v}" aria-label="${v[0].toUpperCase() + v.slice(1)} theme" title="${v[0].toUpperCase() + v.slice(1)}">${THEME_ICONS[v]}</button>`).join("");
+  bar.insertBefore(wrap, bar.firstChild);
+  const sync = () => {
+    const pref = themeGet();
+    wrap.querySelectorAll("button").forEach(b => b.setAttribute("aria-checked", String(b.dataset.themeValue === pref)));
+    wrap.querySelector(".ts-pill").style.transform = `translateX(${THEME_ORDER.indexOf(pref) * 34}px)`;
+  };
+  wrap.addEventListener("click", e => {
+    const b = e.target.closest("button[data-theme-value]"); if (!b) return;
+    try { localStorage.setItem("pike-theme", b.dataset.themeValue); } catch (err) {}
+    themeApply(b.dataset.themeValue); sync();
+  });
+  wrap.addEventListener("keydown", e => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const i = THEME_ORDER.indexOf(themeGet()), n = (i + (e.key === "ArrowRight" ? 1 : 2)) % 3;
+    wrap.querySelectorAll("button")[n].click(); wrap.querySelectorAll("button")[n].focus();
+  });
+  try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (themeGet() === "system") themeApply("system"); }); } catch (e) {}
+  themeApply(themeGet()); sync();
+}
+
+// ===================================================================
+// MOBILE DOCK: floating bottom navigation that mirrors the tab bar.
+// Each dock button just clicks the matching .tab, so app logic is shared.
+// ===================================================================
+const DOCK_ICONS = {
+  rollcall:   '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  checkin:    '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  meetings:   '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  events:     '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01"/>',
+  absence:    '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M10 14l4 4M14 14l-4 4"/>',
+  reports:    '<path d="M3 3v18h18"/><path d="M7 16v-4M12 16V8M17 16v-7"/>',
+  attendance: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  roster:     '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  settings:   '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+};
+const DOCK_SHORT = { absence: "Absences", rollcall: "Roll Call", checkin: "Check In" };
+function initDock() {
+  const tabs = [...document.querySelectorAll(".tabs .tab")];
+  if (!tabs.length || document.getElementById("pike-dock")) return;
+  const dock = document.createElement("nav");
+  dock.id = "pike-dock"; dock.setAttribute("aria-label", "Sections");
+  dock.innerHTML = tabs.map(t => {
+    const k = t.dataset.tab;
+    return `<button type="button" class="dock-item" data-dock="${k}" aria-label="${escapeHtml(t.textContent.trim())}">
+      <span class="dock-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${DOCK_ICONS[k] || DOCK_ICONS.meetings}</svg></span>
+      <span class="dock-label">${escapeHtml(DOCK_SHORT[k] || t.textContent.trim())}</span></button>`;
+  }).join("");
+  document.body.appendChild(dock);
+  dock.addEventListener("click", e => {
+    const b = e.target.closest(".dock-item"); if (!b) return;
+    const t = document.querySelector(`.tabs .tab[data-tab="${b.dataset.dock}"]`);
+    if (t) { t.click(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  });
+  const sync = () => {
+    tabs.forEach(t => {
+      const b = dock.querySelector(`[data-dock="${t.dataset.tab}"]`); if (!b) return;
+      b.classList.toggle("is-active", t.classList.contains("active"));
+      b.setAttribute("aria-current", t.classList.contains("active") ? "page" : "false");
+      b.hidden = getComputedStyle(t).display === "none";   // mirror role-hidden tabs
+    });
+  };
+  new MutationObserver(sync).observe(document.querySelector(".tabs"), { subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+  new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  sync();
+}
+
+// ===================================================================
 // INIT
 // ===================================================================
 const preselectMeeting = readHash();
@@ -3347,3 +3508,9 @@ function updateLeadTimeHint() {
 
 // Live clock + weather (never allowed to break the page)
 try { initNowWidgets(); } catch (e) { console.warn("Now widgets skipped:", e); }
+
+// Theme switcher
+try { initThemeSwitcher(); } catch (e) { console.warn("Theme switcher skipped:", e); }
+
+// Mobile dock
+try { initDock(); } catch (e) { console.warn("Dock skipped:", e); }
