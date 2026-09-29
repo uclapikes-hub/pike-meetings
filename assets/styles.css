@@ -70,7 +70,7 @@ h1, h2, h3, .heading-serif {
   font-family: Arial, sans-serif;
   font-size: 11px;
   font-weight: bold;
-  letter-spacing: 0.8px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -89,7 +89,7 @@ h1, h2, h3, .heading-serif {
   font-family: Arial, sans-serif;
   font-size: 9px;
   font-weight: bold;
-  letter-spacing: 0.8px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   border-radius: 2px;
   vertical-align: middle;
@@ -132,7 +132,7 @@ header {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   color: var(--gold-ink);
-  letter-spacing: 3px;
+  letter-spacing: 5px;
   text-transform: uppercase;
   margin-top: 14px;
   font-weight: bold;
@@ -149,7 +149,7 @@ header {
   font-family: Arial, sans-serif;
   font-size: 10px;
   color: var(--garnet);
-  letter-spacing: 1.1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   margin-top: 8px;
   font-weight: bold;
@@ -163,7 +163,7 @@ header {
   margin-bottom: 22px;
   font-family: Arial, sans-serif;
   font-size: 11px;
-  letter-spacing: 0.8px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
 }
 .app-link-bar a {
@@ -194,7 +194,7 @@ header {
   font-family: Arial, sans-serif;
   font-size: 10px;
   font-weight: bold;
-  letter-spacing: 0.8px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--garnet);
 }
@@ -232,7 +232,7 @@ header {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   font-weight: bold;
-  letter-spacing: 0.8px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--slate);
   cursor: pointer;
@@ -271,7 +271,7 @@ header {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   color: var(--gold-ink);
-  letter-spacing: 1.1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   font-weight: bold;
   margin-bottom: 20px;
@@ -292,7 +292,7 @@ label {
   font-size: 11px;
   font-weight: bold;
   color: var(--slate);
-  letter-spacing: 0.8px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   margin-bottom: 6px;
   margin-top: 14px;
@@ -330,7 +330,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--g
   font-family: Arial, Helvetica, sans-serif;
   font-size: 12px;
   font-weight: bold;
-  letter-spacing: 1.1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   cursor: pointer;
   margin-top: 18px;
@@ -417,7 +417,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .stat-label {
   font-family: Arial, sans-serif;
   font-size: 10px;
-  letter-spacing: 0.8px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--slate);
   margin-top: 8px;
@@ -448,7 +448,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   display: inline-block;
   font-family: Arial, sans-serif;
   font-size: 10px;
-  letter-spacing: 1.1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: white;
   background: var(--true-gold);
@@ -468,7 +468,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   padding: 14px 26px;
   font-family: Arial, sans-serif;
   font-size: 13px;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
   box-shadow: 0 8px 30px rgba(0,0,0,0.3);
   opacity: 0;
   transition: all 0.3s ease;
@@ -509,7 +509,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .standing-tile .label {
   font-family: Arial, sans-serif;
   font-size: 9px;
-  letter-spacing: 0.7px;
+  letter-spacing: 1.3px;
   text-transform: uppercase;
   color: var(--slate);
   margin-top: 8px;
@@ -602,7 +602,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   color: var(--gold-ink);
-  letter-spacing: 0.8px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   font-weight: bold;
   margin-bottom: 24px;
@@ -648,7 +648,7 @@ body.is-treasurer .role-notice.treasurer-notice { display: none; }
 .roll-sheet-header {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
-  letter-spacing: 0.8px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   font-weight: bold;
   padding: 10px 14px;
@@ -997,7 +997,7 @@ body.has-active-fine::before {
 .modal.notif-judicial .modal-title {
   font-style: normal;
   font-weight: 700;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
 }
 
 /* ----- Fix the aura-vs-modal visual conflict -----
@@ -1091,7 +1091,7 @@ body.welcome-pulsing::after {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 10px;
   font-weight: bold;
-  letter-spacing: 1.1px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--garnet);
   margin-bottom: 6px;
@@ -1333,16 +1333,16 @@ table { border-radius: var(--r-md); overflow: hidden; }
 .signout-btn .so-icon svg { width: 17px; height: 17px; }
 .signout-btn .so-text {
   white-space: nowrap; opacity: 0; font-family: var(--font-label);
-  font-size: 11px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase;
+  font-size: 11px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase;
   transition: opacity 0.2s var(--ease-soft);
 }
 .auth-bar #auth-signout.signout-btn:hover,
-.auth-bar #auth-signout.signout-btn:focus-visible { width: 124px; background: var(--burgundy); }
+.auth-bar #auth-signout.signout-btn:focus-visible { width: 136px; background: var(--burgundy); }
 .signout-btn:hover .so-icon, .signout-btn:focus-visible .so-icon { flex-basis: 38px; }
 .signout-btn:hover .so-text, .signout-btn:focus-visible .so-text { opacity: 1; }
 .auth-bar #auth-signout.signout-btn:active { transform: translate(1px, 1px); }
 @media (hover: none) {
-  .auth-bar #auth-signout.signout-btn { width: 116px; }
+  .auth-bar #auth-signout.signout-btn { width: 128px; }
   .signout-btn .so-icon { flex-basis: 38px; }
   .signout-btn .so-text { opacity: 1; }
 }
@@ -1406,7 +1406,7 @@ table { border-radius: var(--r-md); overflow: hidden; }
 .welcome-card .wb-close:hover { background: rgba(255,255,255,0.26); }
 .welcome-card .wb-eyebrow {
   font-family: var(--font-label); font-size: 11px; font-weight: bold;
-  letter-spacing: 1px; text-transform: uppercase; color: var(--true-gold);
+  letter-spacing: 2px; text-transform: uppercase; color: var(--true-gold);
 }
 .welcome-card .wb-title {
   font-family: 'Cormorant Garamond', Georgia, serif; font-size: 30px; font-weight: 600;
@@ -1430,7 +1430,7 @@ table { border-radius: var(--r-md); overflow: hidden; }
   background: rgba(0,0,0,0.18); box-shadow: inset 2px 2px 5px rgba(0,0,0,0.25), inset -2px -2px 5px rgba(255,255,255,0.08);
   font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 700; color: var(--true-gold);
 }
-.welcome-card .wb-label { font-family: var(--font-label); font-size: 11px; font-weight: bold; letter-spacing: 0.6px; text-transform: uppercase; }
+.welcome-card .wb-label { font-family: var(--font-label); font-size: 11px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; }
 .welcome-card .wb-detail { font-family: var(--font-body); font-size: 13px; line-height: 1.4; color: rgba(255,255,255,0.85); margin-top: 3px; }
 .welcome-card .wb-caught { font-family: var(--font-body); font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 14px; }
 @media (max-width: 600px) {

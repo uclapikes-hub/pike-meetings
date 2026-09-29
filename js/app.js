@@ -533,7 +533,7 @@ function renderMyNoShowsList(myNoShows, myFines) {
           return `
             <div style="padding: 12px 14px; background: white; border: 1px solid rgba(170,151,103,0.3); background-image: linear-gradient(color-mix(in srgb, var(--crimson) 7%, transparent), color-mix(in srgb, var(--crimson) 7%, transparent)); border-radius: 16px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; border-radius: 14px;">
               <div style="flex: 1; min-width: 200px;">
-                <div style="font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 0.5px; color: var(--crimson); text-transform: uppercase;">
+                <div style="font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 1px; color: var(--crimson); text-transform: uppercase;">
                   ${sequence} No-Show &middot; ${escapeHtml(consequenceLabel)}
                 </div>
                 <div style="font-family: Georgia, serif; font-size: 13px; color: var(--slate); margin-top: 4px;">
@@ -547,7 +547,7 @@ function renderMyNoShowsList(myNoShows, myFines) {
               </div>
               <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
                 ${appealStatus ? `
-                  <span style="background: ${n.appealStatus === "overturned" ? "var(--garnet)" : "var(--knight-steel)"}; color: white; padding: 3px 8px; font-family: Arial; font-size: 9px; font-weight: bold; letter-spacing: 0.8px;">
+                  <span style="background: ${n.appealStatus === "overturned" ? "var(--garnet)" : "var(--knight-steel)"}; color: white; padding: 3px 8px; font-family: Arial; font-size: 9px; font-weight: bold; letter-spacing: 1.5px;">
                     ${escapeHtml(appealStatus)}
                   </span>
                 ` : ""}
@@ -598,7 +598,7 @@ function renderRollCallTab() {
         <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 6px;">
           ${escapeHtml(fmtDateLong(openNow.date))} &middot; ${fmtTime(openNow.startTime)}${openNow.location ? " &middot; " + escapeHtml(openNow.location) : ""}
         </div>
-        <div style="font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--gold-ink); margin-top: 14px; font-weight: bold;">
+        <div style="font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold-ink); margin-top: 14px; font-weight: bold;">
           Window closes ${closesIn}
         </div>
 
@@ -664,7 +664,7 @@ function renderRollCallTab() {
             ${escapeHtml(fmtDateLong(upcoming.date))} &middot; ${fmtTime(upcoming.startTime)}${upcoming.location ? " &middot; " + escapeHtml(upcoming.location) : ""}
           </div>
           <div style="margin-top: 18px; padding: 14px; background: var(--light-gold); background-image: linear-gradient(color-mix(in srgb, var(--true-gold) 7%, transparent), color-mix(in srgb, var(--true-gold) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
-            <div style="font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--garnet); font-weight: bold;">
+            <div style="font-family: Arial, sans-serif; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--garnet); font-weight: bold;">
               Roll call opens ${opensIn}
             </div>
             <div style="font-family: Georgia, serif; font-size: 13px; font-style: italic; color: var(--slate); margin-top: 4px;">
@@ -1406,20 +1406,20 @@ function renderMeetingRow(m, isExec) {
 
   let timingBadge;
   if (isOpen) {
-    timingBadge = `<span style="background: var(--crimson); color: white; padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border-radius: 14px;">QR OPEN — closes ${relativeTime(w.closes)}</span>`;
+    timingBadge = `<span style="background: var(--crimson); color: white; padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 1px; border-radius: 14px;">QR OPEN — closes ${relativeTime(w.closes)}</span>`;
   } else if (isFuture) {
-    timingBadge = `<span style="background: var(--khaki); color: var(--burgundy); padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border-radius: 14px;">${relativeTime(w.start).toUpperCase()}</span>`;
+    timingBadge = `<span style="background: var(--khaki); color: var(--burgundy); padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 1px; border-radius: 14px;">${relativeTime(w.start).toUpperCase()}</span>`;
   } else {
-    timingBadge = `<span style="background: var(--knight-steel); color: white; padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; border-radius: 14px;">PAST</span>`;
+    timingBadge = `<span style="background: var(--knight-steel); color: white; padding: 2px 8px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 1px; border-radius: 14px;">PAST</span>`;
   }
 
   return `
     <div class="event-row" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: white; border: 1px solid rgba(170,151,103,0.3); border-radius: 14px; ${m.mandatory ? "background-image: linear-gradient(color-mix(in srgb, var(--burgundy) 7%, transparent), color-mix(in srgb, var(--burgundy) 7%, transparent)); border-radius: 16px;" : ""} gap: 12px; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 220px;">
         <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--garnet);">
-          ${escapeHtml(m.title)} ${m.mandatory ? `<span style="font-family: Arial; font-size: 9px; letter-spacing: 0.8px; color: var(--burgundy); margin-left: 6px;">⚑ MANDATORY</span>` : ""}
+          ${escapeHtml(m.title)} ${m.mandatory ? `<span style="font-family: Arial; font-size: 9px; letter-spacing: 1.5px; color: var(--burgundy); margin-left: 6px;">⚑ MANDATORY</span>` : ""}
         </div>
-        <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.5px; margin-top: 4px;">
+        <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 1px; margin-top: 4px;">
           ${escapeHtml(fmtDate(m.date))} &middot; ${fmtTime(m.startTime)}–${fmtTime(m.endTime)}${m.location ? " &middot; " + escapeHtml(m.location) : ""}
         </div>
         <div style="margin-top: 6px;">
@@ -1427,7 +1427,7 @@ function renderMeetingRow(m, isExec) {
         </div>
       </div>
       <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <span style="background: var(--garnet); color: white; padding: 6px 12px; font-family: Arial; font-size: 11px; font-weight: bold; letter-spacing: 0.5px; border-radius: 14px;">
+        <span style="background: var(--garnet); color: white; padding: 6px 12px; font-family: Arial; font-size: 11px; font-weight: bold; letter-spacing: 1px; border-radius: 14px;">
           ${attendees.length} present
         </span>
         <button class="btn btn-ghost btn-small" data-qr="${m.id}">QR</button>
@@ -1485,14 +1485,14 @@ function openRollSheet(meetingId) {
   $("roll-sheet-present").innerHTML = present.length
     ? present.map(b => `<div style="padding: 8px 14px; border-bottom: 1px solid var(--light-gold); font-family: Georgia, serif; font-size: 13px; display: flex; justify-content: space-between;">
         <span>${escapeHtml(b.firstName + " " + b.lastName)}</span>
-        <span style="font-family: Arial; font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--garnet); font-weight: bold;">PRESENT</span>
+        <span style="font-family: Arial; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--garnet); font-weight: bold;">PRESENT</span>
       </div>`).join("")
     : `<div style="padding: 12px; font-family: Georgia, serif; font-style: italic; color: var(--gold-ink);">No one has marked themselves present yet.</div>`;
 
   $("roll-sheet-absent").innerHTML = absent.length
     ? absent.map(b => `<div style="padding: 8px 14px; border-bottom: 1px solid var(--light-gold); font-family: Georgia, serif; font-size: 13px; display: flex; justify-content: space-between;">
         <span>${escapeHtml(b.firstName + " " + b.lastName)}</span>
-        <span style="font-family: Arial; font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--memphis-brick);">${b.status === "New Member" ? "NM" : ""} ${qrWindow(m).isPast ? "ABSENT" : "—"}</span>
+        <span style="font-family: Arial; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--memphis-brick);">${b.status === "New Member" ? "NM" : ""} ${qrWindow(m).isPast ? "ABSENT" : "—"}</span>
       </div>`).join("")
     : `<div style="padding: 12px; font-family: Georgia, serif; font-style: italic; color: var(--gold-ink);">Everyone eligible has marked present.</div>`;
 
@@ -1951,12 +1951,12 @@ function renderMyRequestRow(r) {
               <strong style="font-style: normal; color: var(--garnet);">Approver note:</strong> ${escapeHtml(r.reviewerNote)}
             </div>
           ` : ""}
-          <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 8px; letter-spacing: 0.5px;">
+          <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 8px; letter-spacing: 1px;">
             Submitted ${submittedAgo}
           </div>
         </div>
         <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-          <span style="background: ${statusColor}; color: white; padding: 4px 10px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 0.8px;">
+          <span style="background: ${statusColor}; color: white; padding: 4px 10px; font-family: Arial; font-size: 10px; font-weight: bold; letter-spacing: 1.5px;">
             ${statusLabel}
           </span>
           ${r.status === "pending"
@@ -2037,13 +2037,13 @@ function renderApproverCard(r) {
       <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
         <div style="flex: 1; min-width: 200px;">
           <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--garnet);">
-            ${escapeHtml(r.brotherName)} ${r.mandatory ? `<span style="font-family: Arial; font-size: 10px; letter-spacing: 0.8px; color: var(--burgundy); margin-left: 6px;">⚑ MANDATORY MTG</span>` : ""}
+            ${escapeHtml(r.brotherName)} ${r.mandatory ? `<span style="font-family: Arial; font-size: 10px; letter-spacing: 1.5px; color: var(--burgundy); margin-left: 6px;">⚑ MANDATORY MTG</span>` : ""}
           </div>
-          <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.3px; margin-top: 3px;">
+          <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.5px; margin-top: 3px;">
             ${escapeHtml(r.meetingTitle || "Meeting")} &middot; ${escapeHtml(fmtDate(r.meetingDate))} ${fmtTime(r.meetingStartTime)} (${meetingAway})
           </div>
         </div>
-        <span style="background: var(--khaki); color: var(--burgundy); padding: 3px 9px; font-family: Arial; font-size: 9px; font-weight: bold; letter-spacing: 0.8px; border-radius: 14px;">
+        <span style="background: var(--khaki); color: var(--burgundy); padding: 3px 9px; font-family: Arial; font-size: 9px; font-weight: bold; letter-spacing: 1.5px; border-radius: 14px;">
           ${escapeHtml((r.reason || "OTHER").toUpperCase())}
         </span>
       </div>
@@ -2060,7 +2060,7 @@ function renderApproverCard(r) {
       <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
         <button class="btn" data-approve="${r.id}">Approve</button>
         <button class="btn btn-danger" data-deny="${r.id}">Deny</button>
-        <span style="flex: 1; text-align: right; font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 0.5px;">
+        <span style="flex: 1; text-align: right; font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
           Submitted ${submittedAgo} by ${escapeHtml(r.email || "")}
         </span>
       </div>
@@ -2078,7 +2078,7 @@ function renderReviewedRow(r) {
         &middot; ${escapeHtml(r.meetingTitle || "Meeting")}
         &middot; <span style="color: var(--knight-steel); font-size: 12px;">${escapeHtml(REASON_LABELS[r.reason] || r.reason)}</span>
       </div>
-      <span style="font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 0.5px;">
+      <span style="font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
         by ${escapeHtml(reviewerShort)} ${r.reviewedAt ? relativeTime(r.reviewedAt) : ""}
       </span>
     </div>`;
@@ -2170,7 +2170,7 @@ function renderAppealCard(n) {
           <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--dagger);">
             ${escapeHtml(n.brotherName)}
           </div>
-          <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.3px; margin-top: 3px;">
+          <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); letter-spacing: 0.5px; margin-top: 3px;">
             ${sequence} no-show &middot; ${escapeHtml(n.meetingTitle || "Meeting")} &middot; ${escapeHtml(fmtDate(n.meetingDate || ""))}
           </div>
           <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 3px; font-style: italic;">
@@ -2180,7 +2180,7 @@ function renderAppealCard(n) {
       </div>
 
       <div style="font-family: Georgia, serif; font-size: 14px; color: var(--slate); margin-top: 12px; line-height: 1.55; padding: 12px 14px; background: var(--paper); background-image: linear-gradient(color-mix(in srgb, var(--key-gold) 7%, transparent), color-mix(in srgb, var(--key-gold) 7%, transparent)); border-radius: 16px; border-radius: 14px;">
-        <div style="font-family: Arial, sans-serif; font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--garnet); font-weight: bold; margin-bottom: 4px;">Appeal reason</div>
+        <div style="font-family: Arial, sans-serif; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--garnet); font-weight: bold; margin-bottom: 4px;">Appeal reason</div>
         ${escapeHtml(n.appealReason || "")}
       </div>
 
@@ -2192,7 +2192,7 @@ function renderAppealCard(n) {
       <div style="display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap;">
         <button class="btn" data-overturn="${n.id}">Overturn (remove no-show)</button>
         <button class="btn btn-danger" data-uphold="${n.id}">Uphold (no-show stands)</button>
-        <span style="flex: 1; text-align: right; font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 0.5px;">
+        <span style="flex: 1; text-align: right; font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
           Appealed ${submittedAgo}
         </span>
       </div>
@@ -2209,7 +2209,7 @@ function renderAppealReviewedRow(n) {
         &middot; ${escapeHtml(n.brotherName)}
         &middot; ${escapeHtml(n.meetingTitle || "Meeting")}
       </div>
-      <span style="font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 0.5px;">
+      <span style="font-family: Arial; font-size: 10px; color: var(--knight-steel); letter-spacing: 1px;">
         by ${escapeHtml(reviewerShort)} ${n.appealResolvedAt ? relativeTime(n.appealResolvedAt) : ""}
       </span>
     </div>`;
@@ -2502,12 +2502,12 @@ function renderPendingAcksSection() {
                   <span style="color: var(--knight-steel); font-size: 11px; margin-left: 6px;">→ ${escapeHtml(recipientShort)}</span>
                 </div>
               </div>
-              <span style="font-family: Arial; font-size: 9px; letter-spacing: 0.8px; color: ${stale ? "var(--memphis-brick)" : "var(--knight-steel)"}; ${stale ? "font-weight: bold;" : ""} text-transform: uppercase;">
+              <span style="font-family: Arial; font-size: 9px; letter-spacing: 1.5px; color: ${stale ? "var(--memphis-brick)" : "var(--knight-steel)"}; ${stale ? "font-weight: bold;" : ""} text-transform: uppercase;">
                 ${ageLabel}${stale ? " • stale" : ""}
               </span>
             </div>`;
         }).join("")}
-        ${pending.length > 25 ? `<div style="font-family: Arial; font-size: 11px; color: var(--knight-steel); text-align: center; padding: 8px; letter-spacing: 0.5px;">+ ${pending.length - 25} more</div>` : ""}
+        ${pending.length > 25 ? `<div style="font-family: Arial; font-size: 11px; color: var(--knight-steel); text-align: center; padding: 8px; letter-spacing: 1px;">+ ${pending.length - 25} more</div>` : ""}
       </div>
     </div>`;
 }
@@ -2542,7 +2542,7 @@ function renderWatchlistSection() {
             <div style="flex: 1; min-width: 200px;">
               <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 16px; font-weight: 600; color: var(--dagger);">
                 ${escapeHtml(p.brother.firstName + " " + p.brother.lastName)}
-                <span style="font-family: Arial; font-size: 9px; color: var(--knight-steel); letter-spacing: 0.8px; margin-left: 6px;">${escapeHtml((p.brother.status || "").toUpperCase())}</span>
+                <span style="font-family: Arial; font-size: 9px; color: var(--knight-steel); letter-spacing: 1.5px; margin-left: 6px;">${escapeHtml((p.brother.status || "").toUpperCase())}</span>
               </div>
               <div style="font-family: Arial, sans-serif; font-size: 11px; color: var(--slate); margin-top: 3px;">
                 ${p.totalAttended}/${p.totalEvents} attended &middot;
@@ -2554,7 +2554,7 @@ function renderWatchlistSection() {
               <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 700; color: var(--memphis-brick);">
                 ${Math.round(p.ratio * 100)}%
               </div>
-              <div style="font-family: Arial; font-size: 9px; letter-spacing: 0.8px; color: var(--memphis-brick); text-transform: uppercase; font-weight: bold;">
+              <div style="font-family: Arial; font-size: 9px; letter-spacing: 1.5px; color: var(--memphis-brick); text-transform: uppercase; font-weight: bold;">
                 Below 50%
               </div>
             </div>
@@ -2730,7 +2730,7 @@ function renderFineRow(f, mode) {
           &middot; <span style="color: ${mode === "pending" ? "var(--memphis-brick)" : "var(--garnet)"}; font-weight: bold;">$${f.amount}</span>
           &middot; <span style="color: var(--slate); font-size: 12px;">${escapeHtml(f.reason || "")}</span>
         </div>
-        <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 3px; letter-spacing: 0.3px;">
+        <div style="font-family: Arial, sans-serif; font-size: 10px; color: var(--knight-steel); margin-top: 3px; letter-spacing: 0.5px;">
           ${escapeHtml(f.meetingTitle || "")} &middot; ${escapeHtml(fmtDate(f.meetingDate || ""))} &middot; created ${ago}
           ${mode === "paid" ? ` &middot; paid ${paidAgo}` : ""}
         </div>
