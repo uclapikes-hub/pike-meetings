@@ -1640,3 +1640,40 @@ p { line-height: 1.6; }
   font-variant-numeric: lining-nums tabular-nums;
   font-feature-settings: "lnum" 1, "tnum" 1;
 }
+
+/* ----- QR: single crisp code with quiet zone ----- */
+.qr-holder, .qr-holder-wrap { background: transparent !important; border: none !important; padding: 8px 0 !important; }
+.pike-qr-code {
+  display: block !important; width: 100%; max-width: 300px; height: auto; margin: 0 auto;
+  border-radius: 18px; image-rendering: pixelated;
+  box-shadow: 8px 8px 20px rgba(120,98,66,0.16), -6px -6px 14px rgba(255,255,255,0.95);
+}
+.modal-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.modal-actions .btn { margin-top: 0; }
+
+/* ----- QR Present mode (projector) ----- */
+#qr-present {
+  position: fixed; inset: 0; z-index: 10050;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 24px; text-align: center; color: white;
+  background:
+    radial-gradient(90% 70% at 50% 0%, rgba(170,151,103,0.25) 0%, transparent 60%),
+    linear-gradient(160deg, var(--garnet) 0%, var(--burgundy) 55%, var(--dagger) 100%);
+  animation: qp-in 0.35s var(--ease-soft);
+}
+@keyframes qp-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+#qr-present .qp-brand { font-family: var(--font-ui); font-size: 14px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--true-gold); }
+#qr-present .qp-title { font-family: var(--font-display); font-size: clamp(34px, 5vw, 64px); font-weight: 600; line-height: 1.05; letter-spacing: -0.01em; }
+#qr-present .qp-meta { font-family: var(--font-ui); font-size: clamp(15px, 1.8vw, 22px); color: rgba(255,255,255,0.85); }
+#qr-present .qp-code { margin: 14px 0 6px; padding: 14px; background: white; border-radius: 28px; box-shadow: 0 30px 70px rgba(0,0,0,0.35); }
+#qr-present .qp-code canvas { display: block; width: min(62vh, 78vw); height: auto; image-rendering: pixelated; border-radius: 14px; }
+#qr-present .qp-status {
+  font-family: var(--font-ui); font-size: clamp(15px, 1.8vw, 20px); font-weight: 600; letter-spacing: 1px;
+  padding: 10px 20px; border-radius: 999px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.2);
+}
+#qr-present .qp-hint { font-family: var(--font-ui); font-size: 15px; color: rgba(255,255,255,0.75); }
+#qr-present .qp-close {
+  position: absolute; top: 20px; right: 20px; width: 48px; height: 48px; border-radius: 50%;
+  border: none; cursor: pointer; font-size: 26px; line-height: 1; color: white; background: rgba(255,255,255,0.16);
+}
+#qr-present .qp-close:hover { background: rgba(255,255,255,0.28); }

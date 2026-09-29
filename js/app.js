@@ -1546,17 +1546,108 @@ function openRollSheet(meetingId) {
 }
 
 // ===================================================================
+// PIKE QR: one crisp code with a proper quiet zone, a printable poster
+// for Download, and a full-screen Present mode for projecting.
+// ===================================================================
+let _qrPresentTimer = null;
+
+// QR with a white quiet zone (scanners need it) and high error correction
+function pikeQrCanvas(text, px) {
+  const tmp = document.createElement("div");
+  new QRCode(tmp, { text, width: px, height: px, colorDark: "#79242F", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
+  const src = tmp.querySelector("canvas");
+  const quiet = Math.round(px * 0.09);
+  const c = document.createElement("canvas");
+  c.width = c.height = px + quiet * 2;
+  const g = c.getContext("2d");
+  g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
+  g.imageSmoothingEnabled = false;
+  g.drawImage(src, quiet, quiet, px, px);
+  return c;
+}
+
+function pikeRoundRect(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+
+// Printable 1200x1650 poster: PIKE header, title, details, big QR, instructions
+async function pikeQrPoster(url, title, meta, instruction) {
+  try { await Promise.all([document.fonts.load('600 72px "Cormorant Garamond"'), document.fonts.load('600 30px "Gantari"'), document.fonts.load('500 30px "Gantari"')]); } catch (e) {}
+  const W = 1200, H = 1650, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d");
+  g.fillStyle = "#F6EFE1"; g.fillRect(0, 0, W, H);
+  const hdr = g.createLinearGradient(0, 0, W, 220); hdr.addColorStop(0, "#79242F"); hdr.addColorStop(1, "#572A31");
+  g.fillStyle = hdr; g.fillRect(0, 0, W, 220);
+  g.textAlign = "center";
+  g.fillStyle = "#AA9767"; g.font = '600 96px "Cormorant Garamond", Georgia, serif'; g.fillText("PIKE", W / 2, 118);
+  g.fillStyle = "rgba(255,255,255,0.85)"; g.font = '600 26px "Gantari", Arial, sans-serif';
+  g.fillText("I O T A   P I   ·   U C L A", W / 2, 172);
+  let size = 78; g.font = `600 ${size}px "Cormorant Garamond", Georgia, serif`;
+  while (g.measureText(title).width > W - 140 && size > 40) { size -= 4; g.font = `600 ${size}px "Cormorant Garamond", Georgia, serif`; }
+  g.fillStyle = "#79242F"; g.fillText(title, W / 2, 330);
+  g.fillStyle = "#323E48"; g.font = '500 32px "Gantari", Arial, sans-serif'; g.fillText(meta, W / 2, 390);
+  g.save(); g.shadowColor = "rgba(87,42,49,0.18)"; g.shadowBlur = 40; g.shadowOffsetY = 14;
+  pikeRoundRect(g, 170, 450, 860, 860, 48); g.fillStyle = "#ffffff"; g.fill(); g.restore();
+  g.imageSmoothingEnabled = false; g.drawImage(pikeQrCanvas(url, 700), 200, 480, 800, 800);
+  g.fillStyle = "#323E48"; g.font = '600 36px "Gantari", Arial, sans-serif'; g.fillText(instruction, W / 2, 1410);
+  g.fillStyle = "#72633E"; g.font = '500 26px "Gantari", Arial, sans-serif'; g.fillText("Open your phone camera and point it at the code.", W / 2, 1462);
+  g.fillStyle = "#AA9767"; g.font = '600 24px "Gantari", Arial, sans-serif'; g.fillText("C O U R A G E   T O   B E   M O R E", W / 2, 1570);
+  return c;
+}
+
+// Draw the code into the modal (one canvas, no duplicates) and prep the poster
+function pikeRenderQrModal(holder, url, title, meta, instruction) {
+  holder.innerHTML = "";
+  const code = pikeQrCanvas(url, 560);
+  code.className = "pike-qr-code";
+  code.setAttribute("role", "img");
+  code.setAttribute("aria-label", "QR code for " + title);
+  holder.appendChild(code);
+  currentQrCanvas = code;                       // fallback until the poster is ready
+  pikeQrPoster(url, title, meta, instruction).then(p => { currentQrCanvas = p; }).catch(() => {});
+}
+
+// Full-screen Present mode for projecting at chapter
+function pikeQrPresent(url, title, meta, statusFn) {
+  pikeQrClosePresent();
+  const el = document.createElement("div");
+  el.id = "qr-present"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "QR code, presentation mode");
+  el.innerHTML = `
+    <button class="qp-close" type="button" aria-label="Exit presentation">&times;</button>
+    <div class="qp-brand">PIKE · Iota Pi</div>
+    <div class="qp-title"></div>
+    <div class="qp-meta"></div>
+    <div class="qp-code"></div>
+    <div class="qp-status"></div>
+    <div class="qp-hint">Open your phone camera and point it at the code</div>`;
+  el.querySelector(".qp-title").textContent = title;
+  el.querySelector(".qp-meta").textContent = meta;
+  el.querySelector(".qp-code").appendChild(pikeQrCanvas(url, 900));
+  document.body.appendChild(el);
+  const tick = () => { const s = statusFn ? statusFn() : ""; el.querySelector(".qp-status").textContent = s; el.querySelector(".qp-status").hidden = !s; };
+  tick(); _qrPresentTimer = setInterval(tick, 15000);
+  el.querySelector(".qp-close").addEventListener("click", pikeQrClosePresent);
+  document.addEventListener("keydown", pikeQrEsc);
+  try { if (el.requestFullscreen) el.requestFullscreen().catch(() => {}); } catch (e) {}
+}
+function pikeQrEsc(e) { if (e.key === "Escape") pikeQrClosePresent(); }
+function pikeQrClosePresent() {
+  const el = document.getElementById("qr-present");
+  if (_qrPresentTimer) { clearInterval(_qrPresentTimer); _qrPresentTimer = null; }
+  document.removeEventListener("keydown", pikeQrEsc);
+  try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {}
+  if (el) el.remove();
+}
+
+// ===================================================================
 // QR CODE MODAL
 // ===================================================================
 function renderQr(meetingId) {
-  $("qr-holder").innerHTML = "";
+  const m = state.meetings.find(x => x.id === meetingId);
   const url = window.location.origin + window.location.pathname + "#meeting=" + meetingId;
-  new QRCode($("qr-holder"), {
-    text: url, width: 240, height: 240,
-    colorDark: "#79242F", colorLight: "#ffffff",
-    correctLevel: QRCode.CorrectLevel.M,
-  });
-  currentQrCanvas = $("qr-holder").querySelector("canvas") || $("qr-holder").querySelector("img");
+  const meta = m ? `${fmtDateLong(m.date)} · ${fmtTime(m.startTime)}${m.location ? " · " + m.location : ""}` : "";
+  pikeRenderQrModal($("qr-holder"), url, m ? m.title : "Chapter Meeting", meta, "Scan to mark yourself present");
 }
 
 function openQrModal(meetingId) {
@@ -1581,6 +1672,18 @@ $("qr-download").addEventListener("click", () => {
   a.download = `pike-meeting-qr-${currentQrMeeting.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`;
   a.click();
   toast("QR downloaded");
+});
+$("qr-present-btn").addEventListener("click", () => {
+  if (!currentQrMeeting) return;
+  const m = currentQrMeeting;
+  const url = window.location.origin + window.location.pathname + "#meeting=" + m.id;
+  const meta = `${fmtDateLong(m.date)} · ${fmtTime(m.startTime)}${m.location ? " · " + m.location : ""}`;
+  pikeQrPresent(url, m.title, meta, () => {
+    const w = qrWindow(m);
+    if (w.isOpen) return "Roll call open · closes " + relativeTime(w.closes);
+    if (w.isFuture) return "Roll call opens " + relativeTime(w.opens);
+    return "Roll call closed";
+  });
 });
 $("qr-copy-url").addEventListener("click", async () => {
   if (!currentQrMeeting) return;
