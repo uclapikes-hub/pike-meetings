@@ -232,6 +232,8 @@ function renderWelcomeBack() {
     ? "Here's where things stand."
     : `Here's what you missed since ${new Date(since).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.`;
   const hasNews = items.some(i => i.label !== "Next meeting");
+  // Nothing new since the last visit: stay out of the way instead of showing an empty recap
+  if (!hasNews && since != null) { el.dataset.html = ""; el.innerHTML = ""; return; }
 
   const html = `
     <section class="welcome-card" aria-label="Welcome back">
