@@ -46,6 +46,9 @@
     <a href="#" class="current">Meetings</a>
   </div>
 
+  <!-- ============== SIGNED-OUT WELCOME ============== -->
+  <div id="signin-hero" hidden></div>
+
   <!-- ============== QUARTER BAR ============== -->
   <div class="quarter-bar">
     <label for="quarter-top">Quarter</label>
@@ -69,6 +72,7 @@
     <!-- Live clock + Westwood weather -->
     <div id="updates-teaser"></div>
     <div id="now-widgets"></div>
+    <div id="chapter-calendar"></div>
 
     <!-- Brother dashboard (shown when signed in & in roster) -->
     <!-- Welcome Back card (shown once per sign-in) -->
@@ -313,6 +317,26 @@
 
     <div style="margin-top: 22px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
       <button class="btn" id="notif-ack">Got It</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============== FIRST-TIME WALKTHROUGH ============== -->
+<div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-labelledby="tour-title">
+  <div class="tour-card">
+    <button class="tour-x" type="button" id="tour-skip-x" aria-label="Close walkthrough">&times;</button>
+    <div class="tour-art" id="tour-art" aria-hidden="true"></div>
+    <div class="tour-body">
+      <div class="tour-step" id="tour-step"></div>
+      <h2 class="tour-title" id="tour-title"></h2>
+      <p class="tour-text" id="tour-text"></p>
+      <div class="tour-foot">
+        <div class="tour-dots" id="tour-dots"></div>
+        <div class="tour-actions">
+          <button class="btn btn-ghost" type="button" id="tour-skip">Skip</button>
+          <button class="btn" type="button" id="tour-next">Next</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

@@ -300,6 +300,8 @@ authApi.onChange(user => {
   // Fresh listeners for this account, then surface anything waiting for them
   try { startDataListeners(user ? user.email : null); } catch (e) { console.warn("Listener restart failed:", e); }
   try { showPendingNotifications(); updateFineAura(); } catch (e) {}
+  try { updateAuthChrome(user); } catch (e) { console.warn("Welcome page skipped:", e); }
+  try { maybeStartTour(); } catch (e) {}
 });
 
 $("auth-signin").addEventListener("click", async () => {
@@ -425,6 +427,7 @@ function renderAll() {
   renderAbsenceTab();
   renderReportsTab();
   renderDispatchSafe();
+  try { renderMeetingsCalendar(); } catch (e) { console.warn("Calendar skipped:", e); }
 }
 
 // ===================================================================
@@ -3997,6 +4000,289 @@ function renderUpdatesTeaser() {
 }
 function renderUpdatesTeaserSafe() { try { renderUpdatesTeaser(); } catch (e) { console.warn("Updates box skipped:", e); } }
 document.querySelector('.tab[data-tab="dispatch"]')?.addEventListener("click", () => setTimeout(() => markUpdatesRead(), 0));
+
+// ===================================================================
+// SIGNED-OUT WELCOME (split sign-in page)
+// While Firebase is still checking who is signed in we show a quiet loader,
+// so signed-in brothers never see the welcome page flash by.
+// ===================================================================
+const GOOGLE_G = '<svg class="g-icon" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>';
+let _heroBuilt = false;
+function buildSigninHero() {
+  const el = $("signin-hero"); if (!el || _heroBuilt) return;
+  const fromQr = /meeting=/.test(location.hash);
+  el.innerHTML = `
+    <section class="hero" aria-label="Sign in">
+      <div class="hero-left">
+        <div class="hero-eyebrow hero-in d1">UCLA · Iota Pi Chapter</div>
+        <h1 class="hero-title hero-in d2">Welcome, <em>brother.</em></h1>
+        <p class="hero-desc hero-in d3">Sign in with the Gmail the chapter has on file to check in at chapter, see your standing and catch up on what you missed.</p>
+        ${fromQr ? `<div class="hero-qr hero-in d3"><span class="hero-qr-dot"></span>You scanned a roll-call code. Sign in and you'll land right on check-in.</div>` : ""}
+        <div class="hero-in d4" id="hero-signin-slot"></div>
+        <p class="hero-help hero-in d5">Use the same Google account every time. Not recognized after signing in? Ask an exec to add your email to the roster.</p>
+        <div class="hero-or hero-in d6"><span>Just checking in to an event?</span></div>
+        <a class="hero-alt hero-in d7" href="https://uclapikes-hub.github.io/pike-attendance/"><span>Open the Event Tracker <span aria-hidden="true">→</span></span><small>No sign-in needed</small></a>
+      </div>
+      <div class="hero-right" aria-hidden="true">
+        <img class="hero-crest" src="assets/brand/coa-outline-white.png" alt="">
+        <div class="hero-brand hero-slide">
+          <img class="hero-wordmark" src="assets/brand/wordmark-reversed.png" alt="">
+          <div class="hero-sub">Chapter Meetings</div>
+        </div>
+        <div class="hero-cards">
+          <div class="hero-card hero-pop d5"><span class="hc-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v7h-7"/></svg></span><div><b>Scan in at chapter</b><span>Roll call takes one QR scan.</span></div></div>
+          <div class="hero-card hero-pop d6"><span class="hc-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M10 14l4 4M14 14l-4 4"/></svg></span><div><b>Can't make it?</b><span>Request an excused absence up to 48 hours before.</span></div></div>
+          <div class="hero-card hero-pop d7"><span class="hc-icon"><svg viewBox="0 0 24 24"><path d="M4 4h13a1 1 0 0 1 1 1v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2"/><path d="M8 8h6M8 12h6M8 16h4"/></svg></span><div><b>Chapter Updates</b><span>A recap of every meeting and what's next.</span></div></div>
+        </div>
+      </div>
+    </section>
+    <div class="hero-loading" aria-live="polite"><span class="pike-spinner" aria-hidden="true"></span>Loading…</div>`;
+  _heroBuilt = true;
+}
+function updateAuthChrome(user) {
+  const resolved = !!(authApi.isResolved && authApi.isResolved());
+  const out = !user && resolved;
+  document.body.classList.toggle("auth-pending", !user && !resolved);
+  document.body.classList.toggle("is-signed-out", out);
+  const hero = $("signin-hero"), btn = $("auth-signin");
+  if (!hero || !btn) return;
+  if (!user) {
+    buildSigninHero();
+    hero.hidden = false;
+    const slot = $("hero-signin-slot");
+    if (slot && btn.parentElement !== slot) {
+      slot.appendChild(btn);
+      btn.innerHTML = GOOGLE_G + "<span>Continue with Google</span>";
+    }
+  } else {
+    hero.hidden = true;
+    const bar = document.querySelector(".auth-bar"), so = $("auth-signout");
+    if (bar && btn.parentElement !== bar) { bar.insertBefore(btn, so); btn.textContent = "Sign In with Google"; }
+  }
+}
+
+// ===================================================================
+// CHAPTER CALENDAR: a month you swipe through, one day at a time.
+// Dots mark meetings (garnet) and events (gold); tap a day for its agenda.
+// ===================================================================
+const _cal = { month: null, sel: null, lastScrollKey: "" };
+function calYmd(d) { const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+function calParse(ymd) { const [y, m, d] = ymd.split("-").map(Number); return new Date(y, m - 1, d); }
+function calTime(t) {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number); const ap = h >= 12 ? "PM" : "AM";
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${ap}`;
+}
+function calEsc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+// items: [{ date:"YYYY-MM-DD", time:"19:00", title, where, kind:"meeting"|"event", tag, strong }]
+function renderChapterCalendar(el, items, opts) {
+  if (!el) return;
+  opts = opts || {};
+  const today = calYmd(new Date());
+  if (!_cal.sel) _cal.sel = today;
+  if (!_cal.month) { const d = calParse(_cal.sel); _cal.month = new Date(d.getFullYear(), d.getMonth(), 1); }
+  const m0 = _cal.month, y = m0.getFullYear(), mo = m0.getMonth();
+  const days = new Date(y, mo + 1, 0).getDate();
+  const byDay = {};
+  items.forEach(it => { if (it && it.date) (byDay[it.date] = byDay[it.date] || []).push(it); });
+  Object.values(byDay).forEach(list => list.sort((a, b) => (a.time || "99").localeCompare(b.time || "99")));
+
+  let strip = "";
+  for (let i = 1; i <= days; i++) {
+    const d = new Date(y, mo, i), key = calYmd(d), list = byDay[key] || [];
+    const hasM = list.some(x => x.kind === "meeting"), hasE = list.some(x => x.kind === "event"), strong = list.some(x => x.strong);
+    const cls = ["cal-day", key === _cal.sel ? "is-sel" : "", key === today ? "is-today" : "", key < today ? "is-past" : "", list.length ? "has-items" : ""].join(" ");
+    const label = d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) + (list.length ? `, ${list.length} item${list.length === 1 ? "" : "s"}` : "");
+    strip += `<button type="button" class="${cls}" data-cal-day="${key}" aria-label="${calEsc(label)}" aria-pressed="${key === _cal.sel}">
+      <span class="cal-dow">${d.toLocaleDateString(undefined, { weekday: "short" }).slice(0, 1)}</span>
+      <span class="cal-num">${i}</span>
+      <span class="cal-dots">${hasM ? `<i class="cal-dot is-m${strong ? " is-strong" : ""}"></i>` : ""}${hasE ? `<i class="cal-dot is-e"></i>` : ""}</span>
+    </button>`;
+  }
+
+  const selList = byDay[_cal.sel] || [];
+  const selDate = calParse(_cal.sel);
+  const next = items.filter(it => it.date > _cal.sel).sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")))[0];
+  const agenda = selList.length
+    ? selList.map(it => `
+      <div class="cal-item is-${it.kind}${it.strong ? " is-strong" : ""}">
+        <div class="cal-time">${it.time ? calEsc(calTime(it.time)) : "All day"}</div>
+        <div class="cal-what"><b>${calEsc(it.title)}</b>${it.where || it.tag ? `<span>${calEsc([it.where, it.tag].filter(Boolean).join(" · "))}</span>` : ""}</div>
+        <span class="cal-kind">${it.kind === "meeting" ? "Meeting" : "Event"}</span>
+      </div>`).join("")
+    : `<div class="cal-empty">Nothing on the calendar${_cal.sel === today ? " today" : ""}.${next ? ` <button type="button" class="cal-jump" data-cal-jump="${next.date}">Next up: ${calEsc(next.title)} · ${calParse(next.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} →</button>` : ""}</div>`;
+  const canAdd = opts.onAdd && opts.addLabel && _cal.sel >= today;
+
+  const html = `
+    <section class="cal" aria-label="Chapter calendar">
+      <div class="cal-head">
+        <div>
+          <div class="cal-eyebrow">${calEsc(opts.eyebrow || "Chapter Calendar")}</div>
+          <div class="cal-month">${m0.toLocaleDateString(undefined, { month: "long" })} <span>${y}</span></div>
+        </div>
+        <div class="cal-nav">
+          <button type="button" class="cal-btn" data-cal-nav="-1" aria-label="Previous month"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <button type="button" class="cal-today" data-cal-nav="0">Today</button>
+          <button type="button" class="cal-btn" data-cal-nav="1" aria-label="Next month"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+        </div>
+      </div>
+      <div class="cal-strip-wrap"><div class="cal-strip">${strip}</div></div>
+      <div class="cal-agenda">
+        <div class="cal-agenda-head">
+          <span class="cal-agenda-date">${selDate.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</span>
+          <span class="cal-legend">${items.some(x => x.kind === "meeting") ? `<i class="cal-dot is-m"></i>Meeting` : ""}${items.some(x => x.kind === "event") ? `<i class="cal-dot is-e"></i>Event` : ""}</span>
+        </div>
+        ${agenda}
+      </div>
+      ${canAdd ? `<div class="cal-foot"><button type="button" class="cal-add" data-cal-add="${_cal.sel}"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>${calEsc(opts.addLabel)} ${selDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</button></div>` : ""}
+    </section>`;
+  if (el.dataset.html !== html) {
+    const prevWrap = el.querySelector(".cal-strip-wrap"), prevLeft = prevWrap ? prevWrap.scrollLeft : null;
+    el.dataset.html = html; el.innerHTML = html;
+    if (prevLeft != null && _cal.lastScrollKey === _cal.sel + "|" + y + mo) { const w2 = el.querySelector(".cal-strip-wrap"); if (w2) w2.scrollLeft = prevLeft; }
+    el.querySelectorAll("[data-cal-day]").forEach(b => b.addEventListener("click", () => { _cal.sel = b.dataset.calDay; renderChapterCalendar(el, items, opts); }));
+    el.querySelectorAll("[data-cal-nav]").forEach(b => b.addEventListener("click", () => {
+      const step = Number(b.dataset.calNav);
+      if (step === 0) { _cal.sel = today; const t = new Date(); _cal.month = new Date(t.getFullYear(), t.getMonth(), 1); }
+      else {
+        _cal.month = new Date(y, mo + step, 1);
+        const sameDay = new Date(_cal.month.getFullYear(), _cal.month.getMonth(), 1);
+        const first = items.filter(it => it.date && it.date.slice(0, 7) === calYmd(sameDay).slice(0, 7)).sort((a, b) => a.date.localeCompare(b.date))[0];
+        _cal.sel = calYmd(_cal.month) <= today && today.slice(0, 7) === calYmd(_cal.month).slice(0, 7) ? today : (first ? first.date : calYmd(sameDay));
+      }
+      renderChapterCalendar(el, items, opts);
+    }));
+    el.querySelector("[data-cal-jump]")?.addEventListener("click", e => {
+      _cal.sel = e.currentTarget.dataset.calJump; const d = calParse(_cal.sel); _cal.month = new Date(d.getFullYear(), d.getMonth(), 1);
+      renderChapterCalendar(el, items, opts);
+    });
+    el.querySelector("[data-cal-add]")?.addEventListener("click", e => opts.onAdd(e.currentTarget.dataset.calAdd));
+  }
+  // Keep the chosen day in view (only when the choice or month changes, so we never fight the user's scrolling)
+  const key = _cal.sel + "|" + y + mo;
+  const wrap = el.querySelector(".cal-strip-wrap"), btn = el.querySelector(".cal-day.is-sel");
+  if (_cal.lastScrollKey !== key && wrap && btn) {
+    if (wrap.clientWidth > 0) {   // only once it's actually on screen
+      _cal.lastScrollKey = key;
+      wrap.scrollTo({ left: btn.offsetLeft - wrap.clientWidth / 2 + btn.offsetWidth / 2, behavior: "auto" });
+    } else if (!_cal.waitingForLayout) {
+      _cal.waitingForLayout = true;
+      const tryAgain = () => { _cal.waitingForLayout = false; if (wrap.isConnected) renderChapterCalendar(el, items, opts); };
+      if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (wrap.clientWidth > 0) { ro.disconnect(); tryAgain(); } }); ro.observe(wrap); }
+      else setTimeout(tryAgain, 400);
+    }
+  }
+}
+
+function renderMeetingsCalendar() {
+  const el = $("chapter-calendar"); if (!el) return;
+  if (!state.user) { if (el.innerHTML) { el.innerHTML = ""; el.dataset.html = ""; } return; }
+  const items = [
+    ...state.meetings.map(m => ({ date: m.date, time: m.startTime, title: m.title, where: m.location, kind: "meeting", tag: m.mandatory ? "Mandatory" : "", strong: !!m.mandatory })),
+    ...(state.events || []).map(e => ({ date: e.date, time: e.time || "", title: e.name, where: e.location, kind: "event", tag: e.type || "" })),
+  ];
+  const isExec = !!state.user.isExec;
+  renderChapterCalendar(el, items, {
+    addLabel: isExec ? "Schedule a meeting on" : "",
+    onAdd: isExec ? (ymd => {
+      activateTab("meetings");
+      setTimeout(() => {
+        const d = $("mtg-date"); if (!d) return;
+        d.value = ymd; d.dispatchEvent(new Event("input", { bubbles: true })); d.dispatchEvent(new Event("change", { bubbles: true }));
+        d.closest(".card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        $("mtg-title")?.focus({ preventScroll: true });
+      }, 60);
+    }) : null,
+  });
+}
+
+// ===================================================================
+// FIRST-TIME WALKTHROUGH: a short, skippable tour on a brother's first
+// sign-in on a device. Reopen any time with the "?" button up top.
+// ===================================================================
+const TOUR_KEY = "pike-meetings:tour:v1";
+const TOUR_ICONS = {
+  crest: '<img src="assets/brand/symbol-gold.png" alt="">',
+  qr: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v7h-7"/></svg>',
+  absence: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M10 14l4 4M14 14l-4 4"/></svg>',
+  standing: '<svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+  updates: '<svg viewBox="0 0 24 24"><path d="M4 4h13a1 1 0 0 1 1 1v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2"/><path d="M8 8h6M8 12h6M8 16h4"/></svg>',
+  exec: '<svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+};
+function tourSteps() {
+  const fine = Number((state.settings && state.settings.fineAmount) || FINE_AMOUNT_DEFAULT);
+  const steps = [
+    { icon: "crest", title: "Welcome to Chapter Meetings", text: "Your home base for chapter: roll call, absences, your standing and Chapter Updates. Here's the 30-second tour." },
+    { icon: "qr", title: "Check in with one scan", text: "At chapter, point your phone camera at the code on the screen and open the link. Check-in closes a few minutes after the meeting starts, so be on time." },
+    { icon: "absence", title: "Can't make it? Ask early.", text: "Send an absence request from the Absences tab at least 48 hours before the meeting. You'll get a notice here when it's approved or denied." },
+    { icon: "standing", title: "Know where you stand", text: `Your standing shows absences used and any no-shows. A 2nd no-show in a quarter is a $${fine} fine, paid to the Treasurer.` },
+    { icon: "updates", title: "Stay in the loop", text: "Chapter Updates recap every meeting, and new ones show up at the top of this page. The calendar shows what's coming up." },
+  ];
+  if (state.user && state.user.isExec) steps.push({ icon: "exec", title: "Your exec tools", text: "Create meetings (a whole quarter of weekly ones at once), show the QR, run roll call and publish Chapter Updates. The calendar's + button schedules a meeting on any day." });
+  return steps;
+}
+let _tourStep = 0, _tourSteps = [], _tourLastFocus = null;
+function renderTourStep() {
+  const s = _tourSteps[_tourStep], last = _tourStep === _tourSteps.length - 1;
+  $("tour-art").innerHTML = `<div class="tour-icon" key="${_tourStep}">${TOUR_ICONS[s.icon]}</div>`;
+  $("tour-step").textContent = `${_tourStep + 1} of ${_tourSteps.length}`;
+  $("tour-title").textContent = s.title;
+  $("tour-text").textContent = s.text;
+  $("tour-dots").innerHTML = _tourSteps.map((_, i) => `<button type="button" class="tour-dot${i === _tourStep ? " is-on" : ""}" data-tour-go="${i}" aria-label="Step ${i + 1}"></button>`).join("");
+  $("tour-dots").querySelectorAll("[data-tour-go]").forEach(b => b.addEventListener("click", () => { _tourStep = Number(b.dataset.tourGo); renderTourStep(); }));
+  $("tour-next").innerHTML = last ? "Let's go" : `Next <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+  $("tour-skip").style.visibility = last ? "hidden" : "";
+  const body = document.querySelector("#tour .tour-body"); body.classList.remove("is-swap"); void body.offsetWidth; body.classList.add("is-swap");
+}
+function openTour() {
+  _tourSteps = tourSteps(); _tourStep = 0; _tourLastFocus = document.activeElement;
+  const t = $("tour"); t.hidden = false; requestAnimationFrame(() => t.classList.add("is-open"));
+  document.body.classList.add("tour-open");
+  renderTourStep(); $("tour-next").focus({ preventScroll: true });
+}
+function closeTour() {
+  const t = $("tour"); t.classList.remove("is-open"); document.body.classList.remove("tour-open");
+  setTimeout(() => { t.hidden = true; }, 220);
+  try { localStorage.setItem(TOUR_KEY, "done"); } catch (e) {}
+  if (_tourLastFocus && _tourLastFocus.focus) _tourLastFocus.focus({ preventScroll: true });
+}
+function initTour() {
+  $("tour-next").addEventListener("click", () => { if (_tourStep < _tourSteps.length - 1) { _tourStep++; renderTourStep(); } else closeTour(); });
+  $("tour-skip").addEventListener("click", closeTour);
+  $("tour-skip-x").addEventListener("click", closeTour);
+  $("tour").addEventListener("click", e => { if (e.target.id === "tour") closeTour(); });
+  document.addEventListener("keydown", e => {
+    if ($("tour").hidden) return;
+    if (e.key === "Escape") closeTour();
+    else if (e.key === "ArrowRight" && _tourStep < _tourSteps.length - 1) { _tourStep++; renderTourStep(); }
+    else if (e.key === "ArrowLeft" && _tourStep > 0) { _tourStep--; renderTourStep(); }
+  });
+  // "?" button in the top bar to replay the tour
+  const bar = document.querySelector(".auth-bar");
+  if (bar && !$("tour-open")) {
+    const b = document.createElement("button");
+    b.id = "tour-open"; b.type = "button"; b.className = "tour-open-btn"; b.setAttribute("aria-label", "How this app works"); b.title = "How this app works";
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.2a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>';
+    b.addEventListener("click", openTour);
+    bar.insertBefore(b, $("auth-status"));
+  }
+}
+// First sign-in on this device: wait for any notice pop-ups to clear, then show the tour once.
+let _tourQueued = false;
+function maybeStartTour() {
+  if (_tourQueued || !state.user || !(state.user.rosterEntry || state.user.isExec)) return;
+  try { if (localStorage.getItem(TOUR_KEY) === "done") return; } catch (e) { return; }
+  _tourQueued = true;
+  let tries = 0;
+  const attempt = () => {
+    if (!state.user) { _tourQueued = false; return; }
+    const busy = $("notif-modal")?.classList.contains("visible") || document.querySelector(".modal.visible");
+    if (busy && tries++ < 60) return setTimeout(attempt, 700);
+    openTour();
+  };
+  setTimeout(attempt, 1200);
+}
 // ===================================================================
 // INIT
 // ===================================================================
@@ -4071,3 +4357,5 @@ function openDispatchFromHash() {
 }
 window.addEventListener("hashchange", openDispatchFromHash);
 try { openDispatchFromHash(); } catch (e) { console.warn("Dispatch link skipped:", e); }
+try { updateAuthChrome(state.user); } catch (e) { console.warn("Welcome page skipped:", e); }
+try { initTour(); } catch (e) { console.warn("Walkthrough skipped:", e); }

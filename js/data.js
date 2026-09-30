@@ -140,13 +140,16 @@ async function resolveUser(firebaseUser) {
   };
 }
 
+let authResolved = false;   // true once Firebase has told us who (if anyone) is signed in
 onAuthStateChanged(auth, async (fbUser) => {
   currentUser = await resolveUser(fbUser);
+  authResolved = true;
   notifyAuth();
 });
 
 export const authApi = {
   current: () => currentUser,
+  isResolved: () => authResolved,
   signIn:  () => signInWithPopup(auth, provider),
   signOut: () => signOut(auth),
   onChange(cb) {
