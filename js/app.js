@@ -65,7 +65,7 @@ function inQuarter(rec) {
 
 const ROLE_LABELS = {
   exec: "Exec", sgt: "Sgt-at-Arms", treasurer: "Treasurer",
-  vice_chair: "J-Board Vice Chair", brother: "Brother", guest: "Guest",
+  vice_chair: "J-Board Vice Chair", brother: "Brother", guest: "Not on roster",
 };
 
 // ===================================================================
@@ -4039,7 +4039,49 @@ function buildSigninHero() {
     <div class="hero-loading" aria-live="polite"><span class="pike-spinner" aria-hidden="true"></span>Loading…</div>`;
   _heroBuilt = true;
 }
+// Signed in, but this Google account isn't on the roster or the exec list:
+// show one fix-it screen instead of an empty app.
+function renderGuestScreen(user) {
+  const el = $("guest-screen"); if (!el) return;
+  const isGuest = !!(user && !user.rosterEntry && !user.isExec);
+  document.body.classList.toggle("is-guest-screen", isGuest);
+  if (!isGuest) { el.hidden = true; el.innerHTML = ""; return; }
+  const email = escapeHtml(user.email || "");
+  el.hidden = false;
+  el.innerHTML = `
+    <section class="gs-screen" aria-labelledby="gs-title">
+      <div class="gs-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 9-5.2"/><path d="M17 15l4 4M21 15l-4 4"/></svg></div>
+      <h1 class="gs-title" id="gs-title">We don't recognize this Google account</h1>
+      <p class="gs-lead">You're signed in as</p>
+      <div class="gs-email"><span>${email}</span><button type="button" class="gs-copy" id="gs-copy" aria-label="Copy email">Copy</button></div>
+      <p class="gs-lead">That email isn't on the chapter roster yet, so there's nothing to show you.</p>
+      <div class="gs-options">
+        <div class="gs-option">
+          <div class="gs-num">1</div>
+          <div><b>Used the wrong Gmail?</b><span>Switch to the account the chapter has on file.</span>
+            <button type="button" class="btn gs-switch" id="gs-switch">Switch account</button></div>
+        </div>
+        <div class="gs-option">
+          <div class="gs-num">2</div>
+          <div><b>This is the right email?</b><span>Ask any exec to add <strong>${email}</strong> to your roster entry in the Event Tracker's Roster tab. Then sign in again.</span></div>
+        </div>
+      </div>
+      <div class="gs-foot">
+        <a href="https://uclapikes-hub.github.io/pike-attendance/">Checking in to an event? Open the Event Tracker →</a>
+        <button type="button" class="gs-signout" id="gs-signout">Sign out</button>
+      </div>
+    </section>`;
+  $("gs-switch").addEventListener("click", async () => {
+    try { await authApi.switchAccount(); } catch (e) { if (e && e.code !== "auth/popup-closed-by-user") toast("Couldn't switch accounts", true); }
+  });
+  $("gs-signout").addEventListener("click", async () => { await authApi.signOut(); toast("Signed out"); });
+  $("gs-copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(user.email); toast("Email copied"); } catch (e) { toast(user.email); }
+  });
+}
+
 function updateAuthChrome(user) {
+  try { renderGuestScreen(user); } catch (e) { console.warn("Not-on-roster screen skipped:", e); }
   const resolved = !!(authApi.isResolved && authApi.isResolved());
   const out = !user && resolved;
   document.body.classList.toggle("auth-pending", !user && !resolved);

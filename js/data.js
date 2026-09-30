@@ -36,6 +36,9 @@ const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const fs   = getFirestore(app);
 const provider = new GoogleAuthProvider();
+// Same sign-in, but always shows Google's account chooser (for "try a different account")
+const pickerProvider = new GoogleAuthProvider();
+pickerProvider.setCustomParameters({ prompt: "select_account" });
 
 // ===================================================================
 // ROLE ALLOWLISTS
@@ -151,6 +154,7 @@ export const authApi = {
   current: () => currentUser,
   isResolved: () => authResolved,
   signIn:  () => signInWithPopup(auth, provider),
+  switchAccount: () => signInWithPopup(auth, pickerProvider),
   signOut: () => signOut(auth),
   onChange(cb) {
     authListeners.add(cb);
