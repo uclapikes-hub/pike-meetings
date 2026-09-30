@@ -2157,3 +2157,21 @@ html[data-theme="dark"] .dp-headline, html[data-theme="dark"] .dp-section p, htm
   .upd-body { flex: 1 1 calc(100% - 50px); }
   .upd-read { width: 100%; }
 }
+
+/* ===== Notification pop-ups: solid cards with a soft severity tint (both themes) ===== */
+.modal.notif-danger .modal-card {
+  background: linear-gradient(180deg, rgba(156, 97, 103, 0.12) 0%, rgba(156, 97, 103, 0) 45%), var(--surface) !important;
+}
+.modal.notif-judicial .modal-card {
+  background: linear-gradient(180deg, rgba(87, 42, 49, 0.14) 0%, rgba(87, 42, 49, 0) 45%), var(--surface) !important;
+}
+.modal.notif-info .modal-card, .modal.notif-warning .modal-card { background: var(--surface) !important; }
+html[data-theme="dark"] .modal.notif-danger .modal-card {
+  background: linear-gradient(180deg, rgba(208, 96, 111, 0.16) 0%, rgba(208, 96, 111, 0) 45%), var(--surface) !important;
+}
+html[data-theme="dark"] .modal.notif-judicial .modal-card {
+  background: linear-gradient(180deg, rgba(208, 96, 111, 0.12) 0%, rgba(208, 96, 111, 0) 45%), var(--surface) !important;
+}
+html[data-theme="dark"] .modal.notif-danger .modal-title,
+html[data-theme="dark"] .modal.notif-judicial .modal-title { color: #E38B97; }
+html[data-theme="dark"] #notif-message { color: var(--slate) !important; }

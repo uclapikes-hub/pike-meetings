@@ -121,7 +121,7 @@ function fmtDateLong(dateStr) {
 
 // "in 2 hours" / "23 minutes ago" style
 function relativeTime(dateOrTimestamp) {
-  const target = dateOrTimestamp instanceof Date ? dateOrTimestamp.getTime() : dateOrTimestamp;
+  const target = dateOrTimestamp instanceof Date ? dateOrTimestamp.getTime() : toMs(dateOrTimestamp);
   const diff = target - Date.now();
   const absMin = Math.round(Math.abs(diff) / 60000);
   if (absMin < 1) return diff > 0 ? "in less than a minute" : "just now";
@@ -297,6 +297,9 @@ authApi.onChange(user => {
   document.body.classList.toggle("is-guest",     !!(user && !user.rosterEntry && !user.isExec));
 
   renderAll();
+  // Fresh listeners for this account, then surface anything waiting for them
+  try { startDataListeners(user ? user.email : null); } catch (e) { console.warn("Listener restart failed:", e); }
+  try { showPendingNotifications(); updateFineAura(); } catch (e) {}
 });
 
 $("auth-signin").addEventListener("click", async () => {
@@ -311,52 +314,64 @@ $("auth-signout").addEventListener("click", async () => {
 // ===================================================================
 // SUBSCRIPTIONS
 // ===================================================================
-roster.subscribe(list => {
-  state.roster = list;
-  renderAll();
-});
-meetings.subscribe(list => {
-  state.meetings = list;
-  renderQuarterSelectors();
-  renderAll();
-});
-attendance.subscribe(list => {
-  state.attendance = list;
-  renderAll();
-});
-absenceRequests.subscribe(list => {
-  state.absenceRequests = list;
-  renderAll();
-});
-noShows.subscribe(list => {
-  state.noShows = list;
-  renderAll();
-});
-fines.subscribe(list => {
-  state.fines = list;
-  updateFineAura(); // Aura must reflect fine state changes immediately
-  renderAll();
-});
-settings.subscribe(s => {
-  state.settings = s;
-  renderSettings();
-  renderDispatchSafe();
-  try { renderWelcomeBack(); } catch (e) {}
-});
-events.subscribe(list => {
-  state.events = list;
-  renderAll();
-});
-checkins.subscribe(list => {
-  state.checkins = list;
-  renderAll();
-});
-notifications.subscribe(list => {
-  state.notifications = list;
-  showPendingNotifications();
-  updateFineAura();
-  renderAll();
-});
+// Listeners are (re)started whenever the signed-in account changes. Firebase
+// refuses signed-out reads of most collections, and a refused listener never
+// retries, so without a restart nothing loaded after tapping Sign in until a refresh.
+var _unsubs = [];
+var _listenersFor;
+function startDataListeners(forEmail) {
+  if (_listenersFor === forEmail) return;
+  _listenersFor = forEmail;
+  _unsubs.forEach(u => { try { u && u(); } catch (e) {} });
+  _unsubs = [];
+  _unsubs.push(roster.subscribe(list => {
+    state.roster = list;
+    renderAll();
+  }));
+  _unsubs.push(meetings.subscribe(list => {
+    state.meetings = list;
+    renderQuarterSelectors();
+    renderAll();
+  }));
+  _unsubs.push(attendance.subscribe(list => {
+    state.attendance = list;
+    renderAll();
+  }));
+  _unsubs.push(absenceRequests.subscribe(list => {
+    state.absenceRequests = list;
+    renderAll();
+  }));
+  _unsubs.push(noShows.subscribe(list => {
+    state.noShows = list;
+    renderAll();
+  }));
+  _unsubs.push(fines.subscribe(list => {
+    state.fines = list;
+    updateFineAura(); // Aura must reflect fine state changes immediately
+    renderAll();
+  }));
+  _unsubs.push(settings.subscribe(s => {
+    state.settings = s;
+    renderSettings();
+    renderDispatchSafe();
+    try { renderWelcomeBack(); } catch (e) {}
+  }));
+  _unsubs.push(events.subscribe(list => {
+    state.events = list;
+    renderAll();
+  }));
+  _unsubs.push(checkins.subscribe(list => {
+    state.checkins = list;
+    renderAll();
+  }));
+  _unsubs.push(notifications.subscribe(list => {
+    state.notifications = list;
+    showPendingNotifications();
+    updateFineAura();
+    renderAll();
+  }));
+}
+startDataListeners(state.user ? state.user.email : null);
 
 // ===================================================================
 // QUARTER SELECTOR
@@ -1099,7 +1114,9 @@ async function showPendingNotifications() {
   // Severity-aware acknowledgment label
   const ackLabel = n.severity === "judicial" ? "I Understand"
                  : n.severity === "danger"   ? "I Acknowledge"
+                 : n.type === "dispatch"     ? "Read it"
                  : "Got It";
+  $("notif-ack").dataset.go = n.type === "dispatch" && n.relatedId ? n.relatedId : "";
   $("notif-ack").textContent = ackLabel;
   $("notif-ack").dataset.id = n.id;
 
@@ -1807,13 +1824,23 @@ $("appeal-submit").addEventListener("click", submitAppeal);
 $("notif-ack").addEventListener("click", async () => {
   const id = $("notif-ack").dataset.id;
   if (!id) return;
+  // Mark it read locally first, then move straight to the next pending notice
+  // (or close). Hiding the modal after the save used to swallow the next notice.
+  const go = $("notif-ack").dataset.go;
+  if (go) {   // Chapter Update notice: open that update
+    try { state.dispatchView = go; activateTab("dispatch"); renderDispatchSafe(); markUpdatesRead(go); window.scrollTo({ top: 0 }); } catch (e) {}
+  }
+  const n = state.notifications.find(x => x.id === id);
+  const prev = n ? n.acknowledgedAt : null;
+  if (n) n.acknowledgedAt = Date.now();
+  $("notif-ack").dataset.id = "";
+  showPendingNotifications();
   try {
     await notifications.acknowledge(id);
-    // Show next pending (if any) — the subscription will re-fire and re-trigger showPendingNotifications
-    // But we close the current modal optimistically:
-    $("notif-modal").classList.remove("visible");
   } catch (e) {
     console.error(e);
+    if (n) n.acknowledgedAt = prev;
+    showPendingNotifications();
     toast("Could not acknowledge", true);
   }
 });
